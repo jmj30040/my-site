@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { ROLES, TIERS } from '../constants';
 
 const emptyProfile = {
-  nickname: '',
   battleTag: '',
   tier: '골드',
   role: '공격',
@@ -11,10 +10,9 @@ const emptyProfile = {
   availableTime: '',
 };
 
-export function ProfileForm({ initialProfile, onSubmit }) {
+export function ProfileForm({ currentUser, initialProfile, onSubmit }) {
   const normalizedProfile = initialProfile
     ? {
-        nickname: initialProfile.nickname ?? '',
         battleTag: initialProfile.battleTag ?? '',
         tier: initialProfile.tier ?? '골드',
         role: initialProfile.role ?? '공격',
@@ -41,6 +39,7 @@ export function ProfileForm({ initialProfile, onSubmit }) {
         .map((hero) => hero.trim())
         .filter(Boolean),
     });
+
     if (!initialProfile) {
       setForm(emptyProfile);
     }
@@ -50,7 +49,7 @@ export function ProfileForm({ initialProfile, onSubmit }) {
     <form className="form-grid" onSubmit={handleSubmit}>
       <label>
         닉네임
-        <input name="nickname" value={form.nickname} onChange={handleChange} required />
+        <input value={currentUser?.nickname ?? ''} disabled placeholder="로그인 후 자동 입력" />
       </label>
       <label>
         배틀태그

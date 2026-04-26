@@ -19,9 +19,7 @@ const requiredFirebaseConfigKeys = [
   'appId',
 ];
 
-export const missingFirebaseConfigKeys = requiredFirebaseConfigKeys.filter(
-  (key) => !firebaseConfig[key],
-);
+export const missingFirebaseConfigKeys = requiredFirebaseConfigKeys.filter((key) => !firebaseConfig[key]);
 
 export const isFirebaseConfigured = missingFirebaseConfigKeys.length === 0;
 

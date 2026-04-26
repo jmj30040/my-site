@@ -83,6 +83,12 @@ textarea {
   max-width: 760px;
 }
 
+.hero-copy {
+  color: #657086;
+  margin: 14px 0 0;
+  max-width: 620px;
+}
+
 .eyebrow {
   color: #f06423;
   font-size: 12px;
@@ -95,6 +101,52 @@ textarea {
 .nickname-box {
   display: grid;
   gap: 8px;
+}
+
+.auth-card {
+  background: #f7f9fc;
+  border: 1px solid #dfe5ef;
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.auth-card h2 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.auth-tabs {
+  background: #e9eef6;
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(2, 1fr);
+  padding: 4px;
+}
+
+.auth-tabs button {
+  background: transparent;
+  min-height: 36px;
+}
+
+.auth-tabs .active-tab {
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(23 32 51 / 10%);
+}
+
+.auth-form {
+  display: grid;
+  gap: 10px;
+}
+
+.auth-form label {
+  color: #4d586b;
+  display: grid;
+  font-size: 14px;
+  font-weight: 700;
+  gap: 6px;
 }
 
 .inline-form {
@@ -115,6 +167,24 @@ textarea {
   border-radius: 8px;
   color: #b3261e;
   padding: 12px 14px;
+}
+
+.notice-message,
+.success-message {
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.notice-message {
+  background: #fff7e8;
+  border: 1px solid #ffd89b;
+  color: #704b00;
+}
+
+.success-message {
+  background: #eaf8ef;
+  border: 1px solid #aee4bf;
+  color: #176b36;
 }
 
 .workspace {

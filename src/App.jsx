@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { AuthPanel } from './components/AuthPanel';
 import { ProfileForm } from './components/ProfileForm';
 import { ProfileList } from './components/ProfileList';
 import { ScheduleForm } from './components/ScheduleForm';
@@ -6,12 +7,16 @@ import { ScheduleList } from './components/ScheduleList';
 import { ROLES, TIERS } from './constants';
 import { isFirebaseConfigured, missingFirebaseConfigKeys } from './firebase';
 import {
+  clearUserSession,
   createProfile,
   createSchedule,
   deleteProfile,
   deleteSchedule,
+  getStoredUser,
   joinSchedule,
   leaveSchedule,
+  loginWithNickname,
+  signUpWithNickname,
   subscribeProfiles,
   subscribeSchedules,
   updateProfile,
@@ -25,9 +30,9 @@ function App() {
   const [editingSchedule, setEditingSchedule] = useState(null);
   const [tierFilter, setTierFilter] = useState('전체');
   const [roleFilter, setRoleFilter] = useState('전체');
-  const [currentNickname, setCurrentNickname] = useState(() => localStorage.getItem('owNickname') ?? '');
-  const [nicknameInput, setNicknameInput] = useState(currentNickname);
+  const [currentUser, setCurrentUser] = useState(() => getStoredUser());
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     if (!isFirebaseConfigured) {
@@ -54,6 +59,184 @@ function App() {
     };
   }, []);
 
+  const myProfile = useMemo(() => {
+    if (!currentUser) {
+      return null;
+    }
+
+    return profiles.find((profile) => profile.ownerId === currentUser.id) ?? null;
+  }, [currentUser, profiles]);
+
+  const filteredProfiles = useMemo(() => {
+    return profiles.filter((profile) => {
+      const matchesTier = tierFilter === '전체' || profile.tier === tierFilter;
+      const matchesRole = roleFilter === '전체' || profile.role === roleFilter;
+      return matchesTier && matchesRole;
+    });
+  }, [profiles, roleFilter, tierFilter]);
+
+  const requireLogin = () => {
+    if (currentUser) {
+      return true;
+    }
+
+    setError('로그인 후 프로필 설정과 일정 등록이 가능합니다.');
+    return false;
+  };
+
+  const handleSignUp = async (authForm) => {
+    setError('');
+    setNotice('');
+
+    try {
+      const user = await signUpWithNickname(authForm);
+      setCurrentUser(user);
+      setNotice(`${user.nickname}님, 회원가입과 로그인이 완료되었습니다.`);
+      return true;
+    } catch (caughtError) {
+      setError(caughtError.message);
+      return false;
+    }
+  };
+
+  const handleLogin = async (authForm) => {
+    setError('');
+    setNotice('');
+
+    try {
+      const user = await loginWithNickname(authForm);
+      setCurrentUser(user);
+      setNotice(`${user.nickname}님 로그인 중입니다.`);
+      return true;
+    } catch (caughtError) {
+      setError(caughtError.message);
+      return false;
+    }
+  };
+
+  const handleLogout = () => {
+    clearUserSession();
+    setCurrentUser(null);
+    setEditingProfile(null);
+    setEditingSchedule(null);
+    setNotice('로그아웃되었습니다.');
+  };
+
+  const handleSubmitProfile = async (profile) => {
+    setError('');
+
+    if (!requireLogin()) {
+      return;
+    }
+
+    try {
+      if (editingProfile) {
+        if (editingProfile.ownerId !== currentUser.id) {
+          setError('본인이 등록한 프로필만 수정할 수 있습니다.');
+          return;
+        }
+
+        await updateProfile(editingProfile.id, profile);
+        setEditingProfile(null);
+      } else {
+        if (myProfile) {
+          setError('프로필은 계정당 하나만 생성할 수 있습니다. 기존 프로필을 수정해주세요.');
+          return;
+        }
+
+        await createProfile(profile, currentUser);
+      }
+    } catch (caughtError) {
+      setError(caughtError.message);
+    }
+  };
+
+  const handleSubmitSchedule = async (schedule) => {
+    setError('');
+
+    if (!requireLogin()) {
+      return;
+    }
+
+    try {
+      if (editingSchedule) {
+        if (editingSchedule.ownerId !== currentUser.id) {
+          setError('본인이 등록한 일정만 수정할 수 있습니다.');
+          return;
+        }
+
+        await updateSchedule(editingSchedule.id, schedule);
+        setEditingSchedule(null);
+      } else {
+        await createSchedule(schedule, currentUser);
+      }
+    } catch (caughtError) {
+      setError(caughtError.message);
+    }
+  };
+
+  const handleDeleteProfile = async (profile) => {
+    setError('');
+
+    if (!requireLogin()) {
+      return;
+    }
+
+    if (profile.ownerId !== currentUser.id) {
+      setError('본인이 등록한 프로필만 삭제할 수 있습니다.');
+      return;
+    }
+
+    if (window.confirm('이 프로필을 삭제할까요?')) {
+      await deleteProfile(profile.id);
+    }
+  };
+
+  const handleDeleteSchedule = async (schedule) => {
+    setError('');
+
+    if (!requireLogin()) {
+      return;
+    }
+
+    if (schedule.ownerId !== currentUser.id) {
+      setError('본인이 등록한 일정만 삭제할 수 있습니다.');
+      return;
+    }
+
+    if (window.confirm('이 일정을 삭제할까요?')) {
+      await deleteSchedule(schedule.id);
+    }
+  };
+
+  const handleJoinSchedule = async (schedule) => {
+    setError('');
+
+    if (!requireLogin()) {
+      return;
+    }
+
+    try {
+      await joinSchedule(schedule, currentUser);
+    } catch (caughtError) {
+      setError(caughtError.message);
+    }
+  };
+
+  const handleLeaveSchedule = async (schedule) => {
+    setError('');
+
+    if (!requireLogin()) {
+      return;
+    }
+
+    try {
+      await leaveSchedule(schedule, currentUser);
+    } catch (caughtError) {
+      setError(caughtError.message);
+    }
+  };
+
   if (!isFirebaseConfigured) {
     return (
       <main className="app-shell">
@@ -71,99 +254,19 @@ function App() {
     );
   }
 
-  const filteredProfiles = useMemo(() => {
-    return profiles.filter((profile) => {
-      const matchesTier = tierFilter === '전체' || profile.tier === tierFilter;
-      const matchesRole = roleFilter === '전체' || profile.role === roleFilter;
-      return matchesTier && matchesRole;
-    });
-  }, [profiles, roleFilter, tierFilter]);
-
-  const handleSaveNickname = (event) => {
-    event.preventDefault();
-    const trimmedNickname = nicknameInput.trim();
-    setCurrentNickname(trimmedNickname);
-    localStorage.setItem('owNickname', trimmedNickname);
-  };
-
-  const handleSubmitProfile = async (profile) => {
-    setError('');
-    try {
-      if (editingProfile) {
-        await updateProfile(editingProfile.id, profile);
-        setEditingProfile(null);
-      } else {
-        await createProfile(profile);
-      }
-    } catch (caughtError) {
-      setError(caughtError.message);
-    }
-  };
-
-  const handleSubmitSchedule = async (schedule) => {
-    setError('');
-    try {
-      if (editingSchedule) {
-        await updateSchedule(editingSchedule.id, schedule);
-        setEditingSchedule(null);
-      } else {
-        await createSchedule(schedule);
-      }
-    } catch (caughtError) {
-      setError(caughtError.message);
-    }
-  };
-
-  const handleDeleteProfile = async (id) => {
-    if (window.confirm('이 프로필을 삭제할까요?')) {
-      await deleteProfile(id);
-    }
-  };
-
-  const handleDeleteSchedule = async (id) => {
-    if (window.confirm('이 일정을 삭제할까요?')) {
-      await deleteSchedule(id);
-    }
-  };
-
-  const handleJoinSchedule = async (schedule) => {
-    if (!currentNickname) {
-      setError('먼저 상단에서 내 닉네임을 저장해주세요.');
-      return;
-    }
-    await joinSchedule(schedule, currentNickname);
-  };
-
-  const handleLeaveSchedule = async (schedule) => {
-    if (!currentNickname) {
-      setError('먼저 상단에서 내 닉네임을 저장해주세요.');
-      return;
-    }
-    await leaveSchedule(schedule, currentNickname);
-  };
-
   return (
     <main className="app-shell">
       <section className="hero">
         <div>
           <p className="eyebrow">Overwatch Friends</p>
-          <h1>친구들과 빠르게 모이고, 편하게 같이 하는 MVP 커뮤니티</h1>
+          <h1>친구들과 빠르게 모이고, 편하게 같이 하는 커뮤니티</h1>
+          <p className="hero-copy">닉네임과 4자리 PIN으로 간단히 로그인하고 프로필과 일정을 공유하세요.</p>
         </div>
-        <form className="nickname-box" onSubmit={handleSaveNickname}>
-          <label htmlFor="nickname">내 닉네임</label>
-          <div className="inline-form">
-            <input
-              id="nickname"
-              value={nicknameInput}
-              onChange={(event) => setNicknameInput(event.target.value)}
-              placeholder="예: Hana"
-            />
-            <button type="submit">저장</button>
-          </div>
-          {currentNickname && <span className="saved-name">{currentNickname}으로 참여 중</span>}
-        </form>
+        <AuthPanel currentUser={currentUser} onLogin={handleLogin} onLogout={handleLogout} onSignUp={handleSignUp} />
       </section>
 
+      {!currentUser && <p className="notice-message">로그인 후 프로필 설정과 일정 등록이 가능합니다.</p>}
+      {notice && <p className="success-message">{notice}</p>}
       {error && <p className="error-message">{error}</p>}
 
       <section className="workspace">
@@ -179,11 +282,16 @@ function App() {
               </button>
             )}
           </div>
-          <ProfileForm
-            key={editingProfile?.id ?? 'new-profile'}
-            initialProfile={editingProfile}
-            onSubmit={handleSubmitProfile}
-          />
+          {currentUser ? (
+            <ProfileForm
+              key={editingProfile?.id ?? currentUser.id}
+              currentUser={currentUser}
+              initialProfile={editingProfile}
+              onSubmit={handleSubmitProfile}
+            />
+          ) : (
+            <p className="empty-state">로그인 후 내 프로필을 만들 수 있습니다.</p>
+          )}
         </div>
 
         <div className="panel">
@@ -212,9 +320,10 @@ function App() {
             </select>
           </div>
           <ProfileList
+            currentUser={currentUser}
             profiles={filteredProfiles}
-            onEdit={setEditingProfile}
             onDelete={handleDeleteProfile}
+            onEdit={setEditingProfile}
           />
         </div>
       </section>
@@ -232,11 +341,15 @@ function App() {
               </button>
             )}
           </div>
-          <ScheduleForm
-            key={editingSchedule?.id ?? 'new-schedule'}
-            initialSchedule={editingSchedule}
-            onSubmit={handleSubmitSchedule}
-          />
+          {currentUser ? (
+            <ScheduleForm
+              key={editingSchedule?.id ?? 'new-schedule'}
+              initialSchedule={editingSchedule}
+              onSubmit={handleSubmitSchedule}
+            />
+          ) : (
+            <p className="empty-state">로그인 후 게임 일정을 등록할 수 있습니다.</p>
+          )}
         </div>
 
         <div className="panel">
@@ -247,7 +360,7 @@ function App() {
             </div>
           </div>
           <ScheduleList
-            currentNickname={currentNickname}
+            currentUser={currentUser}
             schedules={schedules}
             onDelete={handleDeleteSchedule}
             onEdit={setEditingSchedule}

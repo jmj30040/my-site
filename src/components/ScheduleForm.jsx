@@ -5,7 +5,6 @@ const emptySchedule = {
   date: '',
   startTime: '',
   endTime: '',
-  participants: '',
   memo: '',
 };
 
@@ -16,9 +15,6 @@ export function ScheduleForm({ initialSchedule, onSubmit }) {
         date: initialSchedule.date ?? '',
         startTime: initialSchedule.startTime ?? '',
         endTime: initialSchedule.endTime ?? '',
-        participants: Array.isArray(initialSchedule.participants)
-          ? initialSchedule.participants.join(', ')
-          : initialSchedule.participants ?? '',
         memo: initialSchedule.memo ?? '',
       }
     : emptySchedule;
@@ -33,11 +29,9 @@ export function ScheduleForm({ initialSchedule, onSubmit }) {
     event.preventDefault();
     onSubmit({
       ...form,
-      participants: form.participants
-        .split(',')
-        .map((participant) => participant.trim())
-        .filter(Boolean),
+      participants: initialSchedule?.participants ?? [],
     });
+
     if (!initialSchedule) {
       setForm(emptySchedule);
     }
@@ -47,7 +41,7 @@ export function ScheduleForm({ initialSchedule, onSubmit }) {
     <form className="form-grid" onSubmit={handleSubmit}>
       <label className="wide">
         제목
-        <input name="title" value={form.title} onChange={handleChange} placeholder="경쟁전 5인큐" required />
+        <input name="title" value={form.title} onChange={handleChange} placeholder="경쟁전 하실 분" required />
       </label>
       <label>
         날짜
@@ -60,15 +54,6 @@ export function ScheduleForm({ initialSchedule, onSubmit }) {
       <label>
         예상 종료
         <input name="endTime" type="time" value={form.endTime} onChange={handleChange} />
-      </label>
-      <label className="wide">
-        참여자
-        <input
-          name="participants"
-          value={form.participants}
-          onChange={handleChange}
-          placeholder="닉네임을 쉼표로 구분"
-        />
       </label>
       <label className="wide">
         메모
