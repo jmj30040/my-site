@@ -10,6 +10,21 @@ export const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
+const requiredFirebaseConfigKeys = [
+  'apiKey',
+  'authDomain',
+  'projectId',
+  'storageBucket',
+  'messagingSenderId',
+  'appId',
+];
 
-export const db = getFirestore(app);
+export const missingFirebaseConfigKeys = requiredFirebaseConfigKeys.filter(
+  (key) => !firebaseConfig[key],
+);
+
+export const isFirebaseConfigured = missingFirebaseConfigKeys.length === 0;
+
+const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
+
+export const db = app ? getFirestore(app) : null;

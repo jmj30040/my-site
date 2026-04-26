@@ -100,6 +100,32 @@ npm run dev
 
 브라우저에서 Vite가 알려주는 로컬 주소로 접속하면 됩니다. 보통 `http://localhost:5173`입니다.
 
+## GitHub Pages 배포
+
+이 저장소는 `.github/workflows/deploy.yml`로 `main` 브랜치에 push할 때 `dist`를 빌드해서 GitHub Pages에 배포합니다.
+
+GitHub 저장소에서 먼저 아래 설정을 해주세요.
+
+1. `Settings` > `Pages` > `Build and deployment`를 `GitHub Actions`로 선택합니다.
+2. `Settings` > `Secrets and variables` > `Actions` > `New repository secret`에 `.env`와 같은 Firebase 값을 추가합니다.
+
+필요한 secret 이름:
+
+```text
+VITE_FIREBASE_API_KEY
+VITE_FIREBASE_AUTH_DOMAIN
+VITE_FIREBASE_PROJECT_ID
+VITE_FIREBASE_STORAGE_BUCKET
+VITE_FIREBASE_MESSAGING_SENDER_ID
+VITE_FIREBASE_APP_ID
+```
+
+배포 주소는 보통 아래와 같습니다.
+
+```text
+https://jmj30040.github.io/my-site/
+```
+
 ## Firestore 보안 규칙 예시
 
 MVP 테스트용으로만 사용하세요. 실제 서비스에서는 로그인 기반 규칙으로 바꾸는 것이 좋습니다.

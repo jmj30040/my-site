@@ -11,10 +11,16 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
-const usersCollection = collection(db, 'users');
-const schedulesCollection = collection(db, 'schedules');
+function getCollection(collectionName) {
+  if (!db) {
+    throw new Error('Firebase 환경변수가 설정되지 않았습니다.');
+  }
+
+  return collection(db, collectionName);
+}
 
 export function subscribeProfiles(callback) {
+  const usersCollection = getCollection('users');
   const profilesQuery = query(usersCollection, orderBy('createdAt', 'desc'));
 
   return onSnapshot(profilesQuery, (snapshot) => {
@@ -27,6 +33,8 @@ export function subscribeProfiles(callback) {
 }
 
 export function createProfile(profile) {
+  const usersCollection = getCollection('users');
+
   return addDoc(usersCollection, {
     ...profile,
     createdAt: serverTimestamp(),
@@ -34,14 +42,23 @@ export function createProfile(profile) {
 }
 
 export function updateProfile(id, profile) {
+  if (!db) {
+    throw new Error('Firebase 환경변수가 설정되지 않았습니다.');
+  }
+
   return updateDoc(doc(db, 'users', id), profile);
 }
 
 export function deleteProfile(id) {
+  if (!db) {
+    throw new Error('Firebase 환경변수가 설정되지 않았습니다.');
+  }
+
   return deleteDoc(doc(db, 'users', id));
 }
 
 export function subscribeSchedules(callback) {
+  const schedulesCollection = getCollection('schedules');
   const schedulesQuery = query(schedulesCollection, orderBy('date'), orderBy('startTime'));
 
   return onSnapshot(schedulesQuery, (snapshot) => {
@@ -54,6 +71,8 @@ export function subscribeSchedules(callback) {
 }
 
 export function createSchedule(schedule) {
+  const schedulesCollection = getCollection('schedules');
+
   return addDoc(schedulesCollection, {
     ...schedule,
     participants: schedule.participants ?? [],
@@ -62,10 +81,18 @@ export function createSchedule(schedule) {
 }
 
 export function updateSchedule(id, schedule) {
+  if (!db) {
+    throw new Error('Firebase 환경변수가 설정되지 않았습니다.');
+  }
+
   return updateDoc(doc(db, 'schedules', id), schedule);
 }
 
 export function deleteSchedule(id) {
+  if (!db) {
+    throw new Error('Firebase 환경변수가 설정되지 않았습니다.');
+  }
+
   return deleteDoc(doc(db, 'schedules', id));
 }
 

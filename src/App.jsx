@@ -4,6 +4,7 @@ import { ProfileList } from './components/ProfileList';
 import { ScheduleForm } from './components/ScheduleForm';
 import { ScheduleList } from './components/ScheduleList';
 import { ROLES, TIERS } from './constants';
+import { isFirebaseConfigured, missingFirebaseConfigKeys } from './firebase';
 import {
   createProfile,
   createSchedule,
@@ -29,14 +30,42 @@ function App() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const unsubscribeProfiles = subscribeProfiles(setProfiles);
-    const unsubscribeSchedules = subscribeSchedules(setSchedules);
+    if (!isFirebaseConfigured) {
+      return undefined;
+    }
+
+    let unsubscribeProfiles = () => {};
+    let unsubscribeSchedules = () => {};
+
+    try {
+      unsubscribeProfiles = subscribeProfiles(setProfiles);
+      unsubscribeSchedules = subscribeSchedules(setSchedules);
+    } catch (caughtError) {
+      setError(caughtError.message);
+    }
 
     return () => {
       unsubscribeProfiles();
       unsubscribeSchedules();
     };
   }, []);
+
+  if (!isFirebaseConfigured) {
+    return (
+      <main className="app-shell">
+        <section className="hero">
+          <div>
+            <p className="eyebrow">Firebase Setup</p>
+            <h1>Firebase 환경변수가 필요합니다</h1>
+          </div>
+          <div className="setup-box">
+            <p>GitHub Pages 배포 환경에 아래 값이 없습니다.</p>
+            <code>{missingFirebaseConfigKeys.join(', ')}</code>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   const filteredProfiles = useMemo(() => {
     return profiles.filter((profile) => {
