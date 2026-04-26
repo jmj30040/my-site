@@ -5,12 +5,11 @@ import {
   deleteDoc,
   doc,
   onSnapshot,
-  orderBy,
-  query,
   serverTimestamp,
   updateDoc
 } from "firebase/firestore";
-import { db } from "../firebase.js";
+import { db, isFirebaseConfigured } from "../firebase.js";
+import FirebaseNotice from "./FirebaseNotice.jsx";
 
 const tiers = [1, 2, 3, 4, 5];
 
@@ -49,13 +48,19 @@ function TierBoard({ isAdmin }) {
   const [memo, setMemo] = useState("");
 
   useEffect(() => {
+    if (!isFirebaseConfigured) return undefined;
+
     // users 컬렉션을 실시간으로 구독해서 모든 친구에게 같은 티어표를 보여줍니다.
-    const unsubscribe = onSnapshot(
-      query(collection(db, "users"), orderBy("tier", "asc"), orderBy("nickname", "asc")),
-      (snapshot) => {
-        setUsers(snapshot.docs.map((document) => ({ id: document.id, ...document.data() })));
-      }
-    );
+    const unsubscribe = onSnapshot(collection(db, "users"), (snapshot) => {
+      const nextUsers = snapshot.docs.map((document) => ({ id: document.id, ...document.data() }));
+
+      setUsers(
+        nextUsers.sort((a, b) => {
+          const tierDiff = Number(a.tier) - Number(b.tier);
+          return tierDiff || String(a.nickname).localeCompare(String(b.nickname), "ko");
+        })
+      );
+    });
 
     return unsubscribe;
   }, []);
@@ -70,7 +75,7 @@ function TierBoard({ isAdmin }) {
   async function handleAddUser(event) {
     event.preventDefault();
 
-    if (!isAdmin || !nickname.trim()) return;
+    if (!isFirebaseConfigured || !isAdmin || !nickname.trim()) return;
 
     await addDoc(collection(db, "users"), {
       nickname: nickname.trim(),
@@ -85,7 +90,7 @@ function TierBoard({ isAdmin }) {
   }
 
   async function handleUpdateUser(userId, nextFields) {
-    if (!isAdmin) return;
+    if (!isFirebaseConfigured || !isAdmin) return;
 
     await updateDoc(doc(db, "users", userId), {
       ...nextFields,
@@ -94,7 +99,7 @@ function TierBoard({ isAdmin }) {
   }
 
   async function handleDeleteUser(user) {
-    if (!isAdmin) return;
+    if (!isFirebaseConfigured || !isAdmin) return;
 
     const ok = confirm(`${user.nickname} 유저를 삭제할까요?`);
     if (!ok) return;
@@ -104,6 +109,8 @@ function TierBoard({ isAdmin }) {
 
   return (
     <div className="grid gap-5">
+      {!isFirebaseConfigured && <FirebaseNotice />}
+
       <section className="rounded-2xl border border-white/10 bg-ow-panel/90 p-5 sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>

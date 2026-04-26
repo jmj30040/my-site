@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot } from "firebase/firestore";
-import { db } from "../firebase.js";
+import { db, isFirebaseConfigured } from "../firebase.js";
+import FirebaseNotice from "./FirebaseNotice.jsx";
 
 const tierStyles = {
   1: "border-yellow-300/50 bg-yellow-300/10 text-yellow-200",
@@ -21,6 +22,8 @@ function Home({ nickname, isAdmin, setActiveTab }) {
   const [schedules, setSchedules] = useState([]);
 
   useEffect(() => {
+    if (!isFirebaseConfigured) return undefined;
+
     // 홈에서는 사용자와 일정을 모두 실시간으로 구독해 요약 정보를 보여줍니다.
     const unsubscribeUsers = onSnapshot(collection(db, "users"), (snapshot) => {
       const nextUsers = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
@@ -51,6 +54,12 @@ function Home({ nickname, isAdmin, setActiveTab }) {
 
   return (
     <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+      {!isFirebaseConfigured && (
+        <div className="lg:col-span-2">
+          <FirebaseNotice />
+        </div>
+      )}
+
       <section className="rounded-2xl border border-white/10 bg-ow-panel/90 p-5 shadow-glow sm:p-7">
         <p className="text-sm font-black uppercase tracking-[0.24em] text-ow-orange">
           Ready Check

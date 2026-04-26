@@ -11,7 +11,9 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-const app = initializeApp(firebaseConfig);
+export const isFirebaseConfigured = Object.values(firebaseConfig).every(Boolean);
+
+const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
 
 // Authentication은 사용하지 않습니다. 모든 공유 데이터는 Firestore에 저장됩니다.
-export const db = getFirestore(app);
+export const db = app ? getFirestore(app) : null;

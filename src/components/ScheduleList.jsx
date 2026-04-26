@@ -8,7 +8,8 @@ import {
   serverTimestamp,
   updateDoc
 } from "firebase/firestore";
-import { db } from "../firebase.js";
+import { db, isFirebaseConfigured } from "../firebase.js";
+import FirebaseNotice from "./FirebaseNotice.jsx";
 
 const emptyForm = {
   title: "",
@@ -37,6 +38,8 @@ function ScheduleList({ nickname, isAdmin }) {
   const [editingId, setEditingId] = useState("");
 
   useEffect(() => {
+    if (!isFirebaseConfigured) return undefined;
+
     // schedules 컬렉션을 실시간 구독합니다. 정렬은 클라이언트에서 처리해 인덱스 설정 부담을 줄입니다.
     const unsubscribe = onSnapshot(collection(db, "schedules"), (snapshot) => {
       const nextSchedules = snapshot.docs.map((document) => ({
@@ -69,7 +72,7 @@ function ScheduleList({ nickname, isAdmin }) {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    if (!nickname || !form.title.trim() || !form.date) return;
+    if (!isFirebaseConfigured || !nickname || !form.title.trim() || !form.date) return;
 
     const payload = {
       title: form.title.trim(),
@@ -104,6 +107,8 @@ function ScheduleList({ nickname, isAdmin }) {
   }
 
   async function handleDelete(schedule) {
+    if (!isFirebaseConfigured) return;
+
     const ok = confirm(`${schedule.title} 일정을 삭제할까요?`);
     if (!ok) return;
 
@@ -111,7 +116,7 @@ function ScheduleList({ nickname, isAdmin }) {
   }
 
   async function toggleParticipant(schedule) {
-    if (!nickname) return;
+    if (!isFirebaseConfigured || !nickname) return;
 
     const participants = schedule.participants || [];
     const joined = participants.includes(nickname);
@@ -211,6 +216,12 @@ function ScheduleList({ nickname, isAdmin }) {
 
   return (
     <div className="grid gap-5 lg:grid-cols-[410px_1fr]">
+      {!isFirebaseConfigured && (
+        <div className="lg:col-span-2">
+          <FirebaseNotice />
+        </div>
+      )}
+
       <section className="rounded-2xl border border-white/10 bg-ow-panel/90 p-5 sm:p-6">
         <p className="text-sm font-black uppercase tracking-[0.22em] text-ow-orange">
           Match Calendar
@@ -270,7 +281,7 @@ function ScheduleList({ nickname, isAdmin }) {
             <button
               className="rounded-xl bg-ow-orange px-5 py-3 text-sm font-black text-slate-950 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
               type="submit"
-              disabled={!nickname}
+              disabled={!isFirebaseConfigured || !nickname}
             >
               {editingId ? "수정 저장" : "일정 생성"}
             </button>
