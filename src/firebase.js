@@ -1,4 +1,5 @@
 import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 export const firebaseConfig = {
@@ -25,4 +26,5 @@ export const isFirebaseConfigured = missingFirebaseConfigKeys.length === 0;
 
 const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
 
+export const auth = app ? getAuth(app) : null;
 export const db = app ? getFirestore(app) : null;

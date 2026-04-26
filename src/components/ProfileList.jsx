@@ -31,7 +31,7 @@ export function ProfileList({ currentUser, profiles, onEdit, onDelete }) {
             {canManage && (
               <div className="actions">
                 <button onClick={() => onEdit(profile)}>수정</button>
-                <button className="danger-button" onClick={() => onDelete(profile.id)}>
+                <button className="danger-button" onClick={() => onDelete(profile)}>
                   삭제
                 </button>
               </div>

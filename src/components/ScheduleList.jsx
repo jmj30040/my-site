@@ -7,8 +7,11 @@ export function ScheduleList({ currentUser, schedules, onEdit, onDelete, onJoin,
     <div className="card-list">
       {schedules.map((schedule) => {
         const participants = schedule.participants ?? [];
+        const participantIds = schedule.participantIds ?? [];
         const canManage = currentUser?.id === schedule.ownerId;
-        const isJoined = Boolean(currentUser && participants.includes(currentUser.nickname));
+        const isJoined = Boolean(
+          currentUser && (participantIds.includes(currentUser.id) || participants.includes(currentUser.nickname)),
+        );
 
         return (
           <article className="schedule-card" key={schedule.id}>
@@ -37,7 +40,7 @@ export function ScheduleList({ currentUser, schedules, onEdit, onDelete, onJoin,
               {canManage && (
                 <>
                   <button onClick={() => onEdit(schedule)}>수정</button>
-                  <button className="danger-button" onClick={() => onDelete(schedule.id)}>
+                  <button className="danger-button" onClick={() => onDelete(schedule)}>
                     삭제
                   </button>
                 </>

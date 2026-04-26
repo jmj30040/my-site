@@ -1,95 +1,99 @@
 import {
+  createUserWithEmailAndPassword,
+  deleteUser,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth';
+import {
   addDoc,
   collection,
   deleteDoc,
   doc,
-  getDocs,
-  limit,
+  getDoc,
   onSnapshot,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
   updateDoc,
-  where,
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { auth, db } from '../firebase';
 
-const SESSION_STORAGE_KEY = 'owCurrentUser';
-
-function getCollection(collectionName) {
-  if (!db) {
+function requireFirebase() {
+  if (!auth || !db) {
     throw new Error('Firebase 환경변수가 설정되지 않았습니다.');
   }
+}
 
+function getCollection(collectionName) {
+  requireFirebase();
   return collection(db, collectionName);
 }
 
 function normalizeNickname(nickname) {
-  return nickname.trim();
+  return nickname.trim().replace(/\s+/g, ' ');
 }
 
 function validatePin(pin) {
-  return /^\d{4}$/.test(pin);
+  return /^\d{6}$/.test(pin);
 }
 
-async function hashPin(nickname, pin) {
-  // MVP용 간단 인증입니다. 실제 서비스에서는 Firebase Authentication을 사용하세요.
-  const normalizedNickname = normalizeNickname(nickname).toLowerCase();
-  const payload = `${normalizedNickname}:${pin}`;
-  const encodedPayload = new TextEncoder().encode(payload);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', encodedPayload);
+async function hashText(value) {
+  const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return Array.from(new Uint8Array(hashBuffer))
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
 }
 
-async function findUserByNickname(nickname) {
-  const normalizedNickname = normalizeNickname(nickname);
-  const usersQuery = query(getCollection('users'), where('nickname', '==', normalizedNickname), limit(1));
-  const snapshot = await getDocs(usersQuery);
+async function getNicknameKey(nickname) {
+  const normalizedKeySource = normalizeNickname(nickname).toLowerCase();
+  const fullHash = await hashText(normalizedKeySource);
+  return fullHash.slice(0, 32);
+}
 
-  if (snapshot.empty) {
+async function getAuthEmail(nickname) {
+  return `ow-${await getNicknameKey(nickname)}@ow-friends.local`;
+}
+
+function publicUserFromDoc(userDoc) {
+  if (!userDoc.exists()) {
     return null;
   }
 
-  const userDoc = snapshot.docs[0];
+  const data = userDoc.data();
   return {
     id: userDoc.id,
-    ...userDoc.data(),
+    nickname: data.nickname,
   };
 }
 
-export function getStoredUser() {
-  const storedUser = localStorage.getItem(SESSION_STORAGE_KEY);
-
-  if (!storedUser) {
-    return null;
-  }
-
-  try {
-    const parsedUser = JSON.parse(storedUser);
-    return parsedUser?.id && parsedUser?.nickname ? parsedUser : null;
-  } catch {
-    localStorage.removeItem(SESSION_STORAGE_KEY);
-    return null;
-  }
+async function getUserByUid(uid) {
+  requireFirebase();
+  const userDoc = await getDoc(doc(db, 'users', uid));
+  return publicUserFromDoc(userDoc);
 }
 
-export function storeUserSession(user) {
-  localStorage.setItem(
-    SESSION_STORAGE_KEY,
-    JSON.stringify({
-      id: user.id,
-      nickname: user.nickname,
-    }),
-  );
-}
+export function subscribeAuthUser(callback) {
+  requireFirebase();
 
-export function clearUserSession() {
-  localStorage.removeItem(SESSION_STORAGE_KEY);
+  return onAuthStateChanged(auth, async (firebaseUser) => {
+    if (!firebaseUser) {
+      callback(null);
+      return;
+    }
+
+    try {
+      const appUser = await getUserByUid(firebaseUser.uid);
+      callback(appUser);
+    } catch {
+      callback(null);
+    }
+  });
 }
 
 export async function signUpWithNickname({ nickname, pin }) {
+  requireFirebase();
   const normalizedNickname = normalizeNickname(nickname);
 
   if (!normalizedNickname) {
@@ -97,32 +101,52 @@ export async function signUpWithNickname({ nickname, pin }) {
   }
 
   if (!validatePin(pin)) {
-    throw new Error('PIN은 숫자 4자리만 가능합니다.');
+    throw new Error('PIN은 숫자 6자리만 가능합니다.');
   }
 
-  const existingUser = await findUserByNickname(normalizedNickname);
+  const nicknameKey = await getNicknameKey(normalizedNickname);
+  const usernameRef = doc(db, 'usernames', nicknameKey);
+  const existingUsername = await getDoc(usernameRef);
 
-  if (existingUser) {
+  if (existingUsername.exists()) {
     throw new Error('이미 사용 중인 닉네임입니다.');
   }
 
-  const pinHash = await hashPin(normalizedNickname, pin);
-  const userRef = await addDoc(getCollection('users'), {
-    nickname: normalizedNickname,
-    pinHash,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+  const credential = await createUserWithEmailAndPassword(auth, await getAuthEmail(normalizedNickname), pin);
 
-  const user = {
-    id: userRef.id,
+  try {
+    await runTransaction(db, async (transaction) => {
+      const usernameDoc = await transaction.get(usernameRef);
+
+      if (usernameDoc.exists()) {
+        throw new Error('이미 사용 중인 닉네임입니다.');
+      }
+
+      transaction.set(usernameRef, {
+        uid: credential.user.uid,
+        nickname: normalizedNickname,
+        createdAt: serverTimestamp(),
+      });
+      transaction.set(doc(db, 'users', credential.user.uid), {
+        nickname: normalizedNickname,
+        nicknameKey,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    });
+  } catch (caughtError) {
+    await deleteUser(credential.user).catch(() => {});
+    throw caughtError;
+  }
+
+  return {
+    id: credential.user.uid,
     nickname: normalizedNickname,
   };
-  storeUserSession(user);
-  return user;
 }
 
 export async function loginWithNickname({ nickname, pin }) {
+  requireFirebase();
   const normalizedNickname = normalizeNickname(nickname);
 
   if (!normalizedNickname) {
@@ -130,27 +154,34 @@ export async function loginWithNickname({ nickname, pin }) {
   }
 
   if (!validatePin(pin)) {
-    throw new Error('PIN은 숫자 4자리만 가능합니다.');
+    throw new Error('PIN은 숫자 6자리만 가능합니다.');
   }
 
-  const user = await findUserByNickname(normalizedNickname);
+  try {
+    const credential = await signInWithEmailAndPassword(auth, await getAuthEmail(normalizedNickname), pin);
+    const appUser = await getUserByUid(credential.user.uid);
 
-  if (!user) {
-    throw new Error('존재하지 않는 닉네임입니다.');
+    if (!appUser) {
+      throw new Error('사용자 정보가 없습니다.');
+    }
+
+    return appUser;
+  } catch (caughtError) {
+    if (
+      caughtError.code === 'auth/invalid-credential' ||
+      caughtError.code === 'auth/user-not-found' ||
+      caughtError.code === 'auth/wrong-password'
+    ) {
+      throw new Error('닉네임 또는 PIN이 일치하지 않습니다.');
+    }
+
+    throw caughtError;
   }
+}
 
-  const pinHash = await hashPin(normalizedNickname, pin);
-
-  if (user.pinHash !== pinHash) {
-    throw new Error('PIN이 일치하지 않습니다.');
-  }
-
-  const sessionUser = {
-    id: user.id,
-    nickname: user.nickname,
-  };
-  storeUserSession(sessionUser);
-  return sessionUser;
+export function logout() {
+  requireFirebase();
+  return signOut(auth);
 }
 
 export function subscribeProfiles(callback, onError) {
@@ -180,6 +211,7 @@ export function createProfile(profile, currentUser) {
 }
 
 export function updateProfile(id, profile) {
+  requireFirebase();
   return updateDoc(doc(db, 'profiles', id), {
     ...profile,
     updatedAt: serverTimestamp(),
@@ -187,6 +219,7 @@ export function updateProfile(id, profile) {
 }
 
 export function deleteProfile(id) {
+  requireFirebase();
   return deleteDoc(doc(db, 'profiles', id));
 }
 
@@ -212,10 +245,12 @@ export function subscribeSchedules(callback, onError) {
 
 export function createSchedule(schedule, currentUser) {
   const participants = schedule.participants?.length ? schedule.participants : [currentUser.nickname];
+  const participantIds = schedule.participantIds?.length ? schedule.participantIds : [currentUser.id];
 
   return addDoc(getCollection('schedules'), {
     ...schedule,
     participants,
+    participantIds,
     ownerId: currentUser.id,
     ownerNickname: currentUser.nickname,
     createdAt: serverTimestamp(),
@@ -224,6 +259,7 @@ export function createSchedule(schedule, currentUser) {
 }
 
 export function updateSchedule(id, schedule) {
+  requireFirebase();
   return updateDoc(doc(db, 'schedules', id), {
     ...schedule,
     updatedAt: serverTimestamp(),
@@ -231,23 +267,27 @@ export function updateSchedule(id, schedule) {
 }
 
 export function deleteSchedule(id) {
+  requireFirebase();
   return deleteDoc(doc(db, 'schedules', id));
 }
 
 export function joinSchedule(schedule, currentUser) {
   const participants = schedule.participants ?? [];
+  const participantIds = schedule.participantIds ?? [];
 
-  if (participants.includes(currentUser.nickname)) {
+  if (participantIds.includes(currentUser.id) || participants.includes(currentUser.nickname)) {
     return Promise.resolve();
   }
 
   return updateSchedule(schedule.id, {
     participants: [...participants, currentUser.nickname],
+    participantIds: [...participantIds, currentUser.id],
   });
 }
 
 export function leaveSchedule(schedule, currentUser) {
   return updateSchedule(schedule.id, {
     participants: (schedule.participants ?? []).filter((participant) => participant !== currentUser.nickname),
+    participantIds: (schedule.participantIds ?? []).filter((participantId) => participantId !== currentUser.id),
   });
 }

@@ -5,19 +5,18 @@ const emptyAuthForm = {
   pin: '',
 };
 
-export function AuthPanel({ currentUser, onLogin, onLogout, onSignUp }) {
+export function AuthPanel({ currentUser, isAuthLoading, onLogin, onLogout, onSignUp }) {
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState(emptyAuthForm);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
-    const nextValue = name === 'pin' ? value.replace(/\D/g, '').slice(0, 4) : value;
+    const nextValue = name === 'pin' ? value.replace(/\D/g, '').slice(0, 6) : value;
     setForm((currentForm) => ({ ...currentForm, [name]: nextValue }));
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-
     const isSuccess = mode === 'login' ? await onLogin(form) : await onSignUp(form);
 
     if (isSuccess) {
@@ -54,20 +53,20 @@ export function AuthPanel({ currentUser, onLogin, onLogout, onSignUp }) {
           <input name="nickname" value={form.nickname} onChange={handleChange} required placeholder="예: 민진" />
         </label>
         <label>
-          4자리 PIN
+          6자리 PIN
           <input
             inputMode="numeric"
             name="pin"
-            pattern="\d{4}"
+            pattern="\d{6}"
             value={form.pin}
             onChange={handleChange}
-            placeholder="1234"
+            placeholder="123456"
             required
             type="password"
           />
         </label>
-        <button className="primary-button" type="submit">
-          {mode === 'login' ? '로그인' : '회원가입'}
+        <button className="primary-button" disabled={isAuthLoading} type="submit">
+          {isAuthLoading ? '확인 중' : mode === 'login' ? '로그인' : '회원가입'}
         </button>
       </form>
     </section>

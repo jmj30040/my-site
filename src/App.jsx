@@ -7,16 +7,16 @@ import { ScheduleList } from './components/ScheduleList';
 import { ROLES, TIERS } from './constants';
 import { isFirebaseConfigured, missingFirebaseConfigKeys } from './firebase';
 import {
-  clearUserSession,
   createProfile,
   createSchedule,
   deleteProfile,
   deleteSchedule,
-  getStoredUser,
   joinSchedule,
   leaveSchedule,
   loginWithNickname,
+  logout,
   signUpWithNickname,
+  subscribeAuthUser,
   subscribeProfiles,
   subscribeSchedules,
   updateProfile,
@@ -30,9 +30,24 @@ function App() {
   const [editingSchedule, setEditingSchedule] = useState(null);
   const [tierFilter, setTierFilter] = useState('전체');
   const [roleFilter, setRoleFilter] = useState('전체');
-  const [currentUser, setCurrentUser] = useState(() => getStoredUser());
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+
+  useEffect(() => {
+    if (!isFirebaseConfigured) {
+      setIsAuthLoading(false);
+      return undefined;
+    }
+
+    const unsubscribeAuth = subscribeAuthUser((user) => {
+      setCurrentUser(user);
+      setIsAuthLoading(false);
+    });
+
+    return unsubscribeAuth;
+  }, []);
 
   useEffect(() => {
     if (!isFirebaseConfigured) {
@@ -87,6 +102,7 @@ function App() {
   const handleSignUp = async (authForm) => {
     setError('');
     setNotice('');
+    setIsAuthLoading(true);
 
     try {
       const user = await signUpWithNickname(authForm);
@@ -96,12 +112,15 @@ function App() {
     } catch (caughtError) {
       setError(caughtError.message);
       return false;
+    } finally {
+      setIsAuthLoading(false);
     }
   };
 
   const handleLogin = async (authForm) => {
     setError('');
     setNotice('');
+    setIsAuthLoading(true);
 
     try {
       const user = await loginWithNickname(authForm);
@@ -111,15 +130,23 @@ function App() {
     } catch (caughtError) {
       setError(caughtError.message);
       return false;
+    } finally {
+      setIsAuthLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    clearUserSession();
-    setCurrentUser(null);
-    setEditingProfile(null);
-    setEditingSchedule(null);
-    setNotice('로그아웃되었습니다.');
+  const handleLogout = async () => {
+    setError('');
+
+    try {
+      await logout();
+      setCurrentUser(null);
+      setEditingProfile(null);
+      setEditingSchedule(null);
+      setNotice('로그아웃되었습니다.');
+    } catch (caughtError) {
+      setError(caughtError.message);
+    }
   };
 
   const handleSubmitProfile = async (profile) => {
@@ -260,9 +287,17 @@ function App() {
         <div>
           <p className="eyebrow">Overwatch Friends</p>
           <h1>친구들과 빠르게 모이고, 편하게 같이 하는 커뮤니티</h1>
-          <p className="hero-copy">닉네임과 4자리 PIN으로 간단히 로그인하고 프로필과 일정을 공유하세요.</p>
+          <p className="hero-copy">
+            겉으로는 닉네임과 6자리 PIN을 쓰고, 내부 권한은 Firebase Authentication으로 보호합니다.
+          </p>
         </div>
-        <AuthPanel currentUser={currentUser} onLogin={handleLogin} onLogout={handleLogout} onSignUp={handleSignUp} />
+        <AuthPanel
+          currentUser={currentUser}
+          isAuthLoading={isAuthLoading}
+          onLogin={handleLogin}
+          onLogout={handleLogout}
+          onSignUp={handleSignUp}
+        />
       </section>
 
       {!currentUser && <p className="notice-message">로그인 후 프로필 설정과 일정 등록이 가능합니다.</p>}

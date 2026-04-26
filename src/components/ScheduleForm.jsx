@@ -30,6 +30,7 @@ export function ScheduleForm({ initialSchedule, onSubmit }) {
     onSubmit({
       ...form,
       participants: initialSchedule?.participants ?? [],
+      participantIds: initialSchedule?.participantIds ?? [],
     });
 
     if (!initialSchedule) {
