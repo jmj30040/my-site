@@ -102,6 +102,13 @@
       font-size: 34px;
     }
 
+    .sync-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
     .layout {
       display: grid;
       grid-template-columns: minmax(300px, 410px) 1fr;
@@ -221,6 +228,14 @@
     .btn-ghost {
       color: var(--primary-dark);
       background: #fff0f4;
+    }
+
+    .btn-outline {
+      min-height: 38px;
+      border: 1px solid rgba(255, 127, 159, 0.32);
+      color: #8f4f62;
+      background: rgba(255, 255, 255, 0.84);
+      font-size: 13px;
     }
 
     .btn-small {
@@ -386,6 +401,10 @@
       .summary {
         width: 100%;
       }
+
+      .sync-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
 
     @media (max-width: 540px) {
@@ -430,6 +449,11 @@
       <div class="summary" aria-live="polite">
         등록된 일정
         <strong id="scheduleCount">0</strong>
+        <div class="sync-actions">
+          <button class="btn btn-outline" type="button" id="exportButton">내보내기</button>
+          <button class="btn btn-outline" type="button" id="importButton">가져오기</button>
+        </div>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
       </div>
     </section>
 
@@ -510,6 +534,9 @@
     const formTitle = document.getElementById("formTitle");
     const submitButton = document.getElementById("submitButton");
     const resetButton = document.getElementById("resetButton");
+    const exportButton = document.getElementById("exportButton");
+    const importButton = document.getElementById("importButton");
+    const importFile = document.getElementById("importFile");
 
     // 저장된 일정을 배열로 불러옵니다. 저장된 값이 없으면 빈 배열을 사용합니다.
     function loadSchedules() {
@@ -537,6 +564,23 @@
         const second = `${b.date}T${b.time || "00:00"}`;
         return first.localeCompare(second);
       });
+    }
+
+    // 가져온 데이터가 일정 형식인지 확인하고 필요한 값만 정리합니다.
+    function normalizeSchedule(value) {
+      if (!value || !value.date || !value.title) {
+        return null;
+      }
+
+      return {
+        id: value.id || createScheduleId(),
+        date: value.date,
+        time: value.time || "",
+        title: String(value.title).trim(),
+        place: value.place || "",
+        people: value.people || "",
+        memo: value.memo || ""
+      };
     }
 
     // HTML에 직접 들어갈 수 있는 특수문자를 안전하게 바꿉니다.
@@ -680,6 +724,64 @@
     });
 
     resetButton.addEventListener("click", resetForm);
+
+    // 현재 브라우저에 저장된 일정을 JSON 파일로 내려받습니다.
+    exportButton.addEventListener("click", () => {
+      const schedules = sortSchedules(loadSchedules());
+      const blob = new Blob([JSON.stringify(schedules, null, 2)], {
+        type: "application/json"
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "couple-schedules.json";
+      link.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // 숨겨진 파일 입력창을 열어 다른 PC에서 가져온 JSON 파일을 선택합니다.
+    importButton.addEventListener("click", () => {
+      importFile.click();
+    });
+
+    // JSON 파일을 읽어 기존 일정과 합친 뒤 localStorage에 저장합니다.
+    importFile.addEventListener("change", () => {
+      const file = importFile.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+
+      reader.addEventListener("load", () => {
+        try {
+          const imported = JSON.parse(reader.result);
+          const importedSchedules = Array.isArray(imported)
+            ? imported.map(normalizeSchedule).filter(Boolean)
+            : [];
+
+          if (importedSchedules.length === 0) {
+            alert("가져올 수 있는 일정이 없습니다.");
+            return;
+          }
+
+          const schedulesById = new Map(loadSchedules().map((schedule) => [schedule.id, schedule]));
+          importedSchedules.forEach((schedule) => {
+            schedulesById.set(schedule.id, schedule);
+          });
+
+          saveSchedules(sortSchedules(Array.from(schedulesById.values())));
+          resetForm();
+          renderSchedules();
+          alert("일정을 가져왔습니다.");
+        } catch (error) {
+          alert("JSON 파일을 읽을 수 없습니다.");
+        } finally {
+          importFile.value = "";
+        }
+      });
+
+      reader.readAsText(file);
+    });
 
     // 페이지가 처음 열릴 때 저장된 일정을 화면에 표시합니다.
     renderSchedules();
