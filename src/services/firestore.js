@@ -63,15 +63,20 @@ export function deleteProfile(id) {
 
 export function subscribeSchedules(callback, onError) {
   const schedulesCollection = getCollection('schedules');
-  const schedulesQuery = query(schedulesCollection, orderBy('date'), orderBy('startTime'));
 
   return onSnapshot(
-    schedulesQuery,
+    schedulesCollection,
     (snapshot) => {
-      const schedules = snapshot.docs.map((scheduleDoc) => ({
-        id: scheduleDoc.id,
-        ...scheduleDoc.data(),
-      }));
+      const schedules = snapshot.docs
+        .map((scheduleDoc) => ({
+          id: scheduleDoc.id,
+          ...scheduleDoc.data(),
+        }))
+        .sort((firstSchedule, secondSchedule) => {
+          const firstDateTime = `${firstSchedule.date ?? ''} ${firstSchedule.startTime ?? ''}`;
+          const secondDateTime = `${secondSchedule.date ?? ''} ${secondSchedule.startTime ?? ''}`;
+          return firstDateTime.localeCompare(secondDateTime);
+        });
       callback(schedules);
     },
     onError,
