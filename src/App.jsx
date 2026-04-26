@@ -38,8 +38,12 @@ function App() {
     let unsubscribeSchedules = () => {};
 
     try {
-      unsubscribeProfiles = subscribeProfiles(setProfiles);
-      unsubscribeSchedules = subscribeSchedules(setSchedules);
+      const handleSubscriptionError = (caughtError) => {
+        setError(`Firestore read error: ${caughtError.message}`);
+      };
+
+      unsubscribeProfiles = subscribeProfiles(setProfiles, handleSubscriptionError);
+      unsubscribeSchedules = subscribeSchedules(setSchedules, handleSubscriptionError);
     } catch (caughtError) {
       setError(caughtError.message);
     }

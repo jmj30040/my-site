@@ -19,17 +19,21 @@ function getCollection(collectionName) {
   return collection(db, collectionName);
 }
 
-export function subscribeProfiles(callback) {
+export function subscribeProfiles(callback, onError) {
   const usersCollection = getCollection('users');
   const profilesQuery = query(usersCollection, orderBy('createdAt', 'desc'));
 
-  return onSnapshot(profilesQuery, (snapshot) => {
-    const profiles = snapshot.docs.map((profileDoc) => ({
-      id: profileDoc.id,
-      ...profileDoc.data(),
-    }));
-    callback(profiles);
-  });
+  return onSnapshot(
+    profilesQuery,
+    (snapshot) => {
+      const profiles = snapshot.docs.map((profileDoc) => ({
+        id: profileDoc.id,
+        ...profileDoc.data(),
+      }));
+      callback(profiles);
+    },
+    onError,
+  );
 }
 
 export function createProfile(profile) {
@@ -57,17 +61,21 @@ export function deleteProfile(id) {
   return deleteDoc(doc(db, 'users', id));
 }
 
-export function subscribeSchedules(callback) {
+export function subscribeSchedules(callback, onError) {
   const schedulesCollection = getCollection('schedules');
   const schedulesQuery = query(schedulesCollection, orderBy('date'), orderBy('startTime'));
 
-  return onSnapshot(schedulesQuery, (snapshot) => {
-    const schedules = snapshot.docs.map((scheduleDoc) => ({
-      id: scheduleDoc.id,
-      ...scheduleDoc.data(),
-    }));
-    callback(schedules);
-  });
+  return onSnapshot(
+    schedulesQuery,
+    (snapshot) => {
+      const schedules = snapshot.docs.map((scheduleDoc) => ({
+        id: scheduleDoc.id,
+        ...scheduleDoc.data(),
+      }));
+      callback(schedules);
+    },
+    onError,
+  );
 }
 
 export function createSchedule(schedule) {
