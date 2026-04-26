@@ -286,9 +286,9 @@ function App() {
       <section className="hero">
         <div>
           <p className="eyebrow">Overwatch Friends</p>
-          <h1>친구들과 빠르게 모이고, 편하게 같이 하는 커뮤니티</h1>
+          <h1>올레PC존</h1>
           <p className="hero-copy">
-            겉으로는 닉네임과 6자리 PIN을 쓰고, 내부 권한은 Firebase Authentication으로 보호합니다.
+            친구들과 빠르게 모이고, 편하게 같이 하는 커뮤니티
           </p>
         </div>
         <AuthPanel
