@@ -141,6 +141,10 @@ textarea {
   box-shadow: 0 1px 4px rgb(23 32 51 / 10%);
 }
 
+.mobile-section-tabs {
+  display: none;
+}
+
 .auth-form {
   display: grid;
   gap: 10px;
@@ -417,6 +421,37 @@ textarea {
 
   .hero {
     align-items: start;
+  }
+
+  .mobile-section-tabs {
+    background: #e9eef6;
+    border-radius: 8px;
+    display: grid;
+    gap: 4px;
+    grid-template-columns: repeat(2, 1fr);
+    margin-top: 18px;
+    padding: 4px;
+    position: sticky;
+    top: 8px;
+    z-index: 5;
+  }
+
+  .mobile-section-tabs button {
+    background: transparent;
+    min-height: 40px;
+  }
+
+  .mobile-section-tabs .active-tab {
+    background: #fff;
+    box-shadow: 0 1px 4px rgb(23 32 51 / 10%);
+  }
+
+  .mobile-tab-panel {
+    display: none;
+  }
+
+  .mobile-tab-panel.active-mobile-panel {
+    display: grid;
   }
 }
 

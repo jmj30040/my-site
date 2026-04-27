@@ -47,6 +47,7 @@ function App() {
   const [editingSchedule, setEditingSchedule] = useState(null);
   const [tierFilter, setTierFilter] = useState('전체');
   const [roleFilter, setRoleFilter] = useState('전체');
+  const [activeMobileSection, setActiveMobileSection] = useState('schedules');
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isProfileSaving, setIsProfileSaving] = useState(false);
@@ -349,7 +350,24 @@ function App() {
       {notice && <p className="success-message">{notice}</p>}
       {error && <p className="error-message">{error}</p>}
 
-      <section className="workspace">
+      <div className="mobile-section-tabs" aria-label="콘텐츠 탭">
+        <button
+          className={activeMobileSection === 'schedules' ? 'active-tab' : ''}
+          type="button"
+          onClick={() => setActiveMobileSection('schedules')}
+        >
+          일정
+        </button>
+        <button
+          className={activeMobileSection === 'profiles' ? 'active-tab' : ''}
+          type="button"
+          onClick={() => setActiveMobileSection('profiles')}
+        >
+          티어표
+        </button>
+      </div>
+
+      <section className={`workspace mobile-tab-panel ${activeMobileSection === 'profiles' ? 'active-mobile-panel' : ''}`}>
         <div className="panel">
           <div className="section-heading">
             <div>
@@ -410,7 +428,7 @@ function App() {
         </div>
       </section>
 
-      <section className="workspace">
+      <section className={`workspace mobile-tab-panel ${activeMobileSection === 'schedules' ? 'active-mobile-panel' : ''}`}>
         <div className="panel">
           <div className="section-heading">
             <div>
