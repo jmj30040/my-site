@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AdminApprovalPanel } from './components/AdminApprovalPanel';
+import { AdminUserPanel } from './components/AdminUserPanel';
 import { AuthPanel } from './components/AuthPanel';
 import { ProfileForm } from './components/ProfileForm';
 import { ProfileList } from './components/ProfileList';
@@ -19,12 +19,16 @@ import {
   leaveSchedule,
   loginWithNickname,
   logout,
+  deleteUserAccount,
+  issueTemporaryPin,
+  rejectUser,
   signUpWithNickname,
   subscribeAuthUser,
   subscribeProfiles,
   subscribeScheduleComments,
   subscribeSchedules,
   subscribeUsers,
+  updateUserAdminFields,
   updateProfile,
   updateSchedule,
   uploadProfileImage,
@@ -62,6 +66,7 @@ function App() {
   const [profileSavingMessage, setProfileSavingMessage] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [temporaryPinNotice, setTemporaryPinNotice] = useState(null);
 
   useEffect(() => {
     if (!isFirebaseConfigured) {
@@ -138,10 +143,6 @@ function App() {
       };
     }, {});
   }, [scheduleComments]);
-
-  const pendingUsers = useMemo(() => {
-    return users.filter((user) => user.status === 'pending');
-  }, [users]);
 
   const requireLogin = () => {
     if (isApprovedUser) {
@@ -390,6 +391,7 @@ function App() {
   const handleApproveUser = async (user) => {
     setError('');
     setNotice('');
+    setTemporaryPinNotice(null);
 
     if (!currentUser?.isAdmin) {
       setError('관리자만 가입을 승인할 수 있습니다.');
@@ -399,6 +401,93 @@ function App() {
     try {
       await approveUser(user.id);
       setNotice(`${user.nickname || '사용자'}님의 가입을 승인했습니다.`);
+    } catch (caughtError) {
+      setError(caughtError.message);
+    }
+  };
+
+  const handleRejectUser = async (user) => {
+    setError('');
+    setNotice('');
+    setTemporaryPinNotice(null);
+
+    if (!currentUser?.isAdmin) {
+      setError('관리자만 가입을 반려할 수 있습니다.');
+      return;
+    }
+
+    try {
+      await rejectUser(user.id);
+      setNotice(`${user.nickname || '사용자'}님의 가입을 반려했습니다.`);
+    } catch (caughtError) {
+      setError(caughtError.message);
+    }
+  };
+
+  const handleUpdateUser = async (user, updates) => {
+    setError('');
+    setNotice('');
+    setTemporaryPinNotice(null);
+
+    if (!currentUser?.isAdmin) {
+      setError('관리자만 회원 정보를 수정할 수 있습니다.');
+      return;
+    }
+
+    if (user.id === currentUser.id && updates.role !== undefined && updates.role !== 'admin') {
+      setError('현재 로그인한 관리자 권한은 직접 해제할 수 없습니다.');
+      return;
+    }
+
+    try {
+      await updateUserAdminFields(user.id, updates);
+      setNotice(`${user.nickname || '사용자'}님의 정보를 수정했습니다.`);
+    } catch (caughtError) {
+      setError(caughtError.message);
+    }
+  };
+
+  const handleDeleteUser = async (user) => {
+    setError('');
+    setNotice('');
+    setTemporaryPinNotice(null);
+
+    if (!currentUser?.isAdmin) {
+      setError('관리자만 회원을 삭제할 수 있습니다.');
+      return;
+    }
+
+    if (user.id === currentUser.id) {
+      setError('현재 로그인한 관리자 계정은 삭제할 수 없습니다.');
+      return;
+    }
+
+    if (!window.confirm(`${user.nickname || '사용자'}님을 삭제할까요? 계정과 이 사용자가 만든 프로필, 일정, 댓글이 함께 삭제됩니다.`)) {
+      return;
+    }
+
+    try {
+      await deleteUserAccount(user);
+      setNotice(`${user.nickname || '사용자'}님을 삭제했습니다.`);
+    } catch (caughtError) {
+      setError(caughtError.message);
+    }
+  };
+
+  const handleRequestPasswordReset = async (user) => {
+    setError('');
+    setNotice('');
+    setTemporaryPinNotice(null);
+
+    if (!currentUser?.isAdmin) {
+      setError('관리자만 임시 PIN을 발급할 수 있습니다.');
+      return;
+    }
+
+    try {
+      const temporaryPin = await issueTemporaryPin(user.id);
+      setTemporaryPinNotice({ nickname: user.nickname || '사용자', pin: temporaryPin });
+      setNotice(`${user.nickname || '사용자'}님의 임시 PIN을 발급했습니다.`);
     } catch (caughtError) {
       setError(caughtError.message);
     }
@@ -445,9 +534,24 @@ function App() {
         <p className="notice-message">가입 신청이 접수되었습니다. 관리자 승인 후 프로필과 일정 기능을 사용할 수 있습니다.</p>
       )}
       {notice && <p className="success-message">{notice}</p>}
+      {temporaryPinNotice && (
+        <p className="success-message">
+          {temporaryPinNotice.nickname} 임시 PIN: <strong>{temporaryPinNotice.pin}</strong>
+        </p>
+      )}
       {error && <p className="error-message">{error}</p>}
 
-      {currentUser?.isAdmin && <AdminApprovalPanel pendingUsers={pendingUsers} onApprove={handleApproveUser} />}
+      {currentUser?.isAdmin && (
+        <AdminUserPanel
+          currentUser={currentUser}
+          users={users}
+          onApprove={handleApproveUser}
+          onDelete={handleDeleteUser}
+          onReject={handleRejectUser}
+          onRequestPasswordReset={handleRequestPasswordReset}
+          onUpdateUser={handleUpdateUser}
+        />
+      )}
 
       <div className="section-tabs" aria-label="콘텐츠 탭">
         <button

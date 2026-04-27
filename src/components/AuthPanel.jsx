@@ -25,14 +25,21 @@ export function AuthPanel({ currentUser, isAuthLoading, onLogin, onLogout, onSig
   };
 
   if (currentUser) {
-    const isPending = currentUser.status === 'pending';
+    const statusMessages = {
+      deleted: '삭제 처리됨',
+      pending: '승인 대기 중',
+      rejected: '가입 반려됨',
+    };
+    const statusMessage = statusMessages[currentUser.status] ?? '로그인 중';
+    const needsApproval = currentUser.status === 'pending' || currentUser.status === 'rejected' || currentUser.status === 'deleted';
 
     return (
       <div className="auth-card">
-        <p className="eyebrow">{isPending ? 'Pending' : 'Signed In'}</p>
-        <h2>{currentUser.nickname}님 {isPending ? '승인 대기 중' : '로그인 중'}</h2>
+        <p className="eyebrow">{needsApproval ? 'Account Status' : 'Signed In'}</p>
+        <h2>{currentUser.nickname}님 {statusMessage}</h2>
         {currentUser.isAdmin && <span className="admin-badge">관리자</span>}
-        {isPending && <p className="auth-help">관리자가 가입을 승인하면 서비스를 이용할 수 있습니다.</p>}
+        {currentUser.temporaryPinIssuedAt && <p className="auth-help">관리자가 발급한 임시 PIN으로 로그인할 수 있는 계정입니다.</p>}
+        {needsApproval && <p className="auth-help">관리자가 승인한 계정만 서비스를 이용할 수 있습니다.</p>}
         <button className="ghost-button" onClick={onLogout}>
           로그아웃
         </button>

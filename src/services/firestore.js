@@ -1,6 +1,4 @@
 import {
-  createUserWithEmailAndPassword,
-  deleteUser,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
@@ -11,15 +9,19 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
   runTransaction,
   serverTimestamp,
   updateDoc,
+  where,
+  writeBatch,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
+const SESSION_STORAGE_KEY = 'owFriendsSessionUserId';
 const PROFILE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 const PROFILE_IMAGE_MAX_DIMENSION = 320;
 const PROFILE_IMAGE_MAX_DATA_URL_LENGTH = 300000;
@@ -79,6 +81,23 @@ async function hashText(value) {
     .join('');
 }
 
+function createSalt() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes)
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function hashPin(pin, salt) {
+  return hashText(`${salt}:${pin}`);
+}
+
+function createTemporaryPin() {
+  const pinNumber = crypto.getRandomValues(new Uint32Array(1))[0] % 1000000;
+  return pinNumber.toString().padStart(6, '0');
+}
+
 async function getNicknameKey(nickname) {
   const normalizedKeySource = normalizeNickname(nickname).toLowerCase();
   const fullHash = await hashText(normalizedKeySource);
@@ -101,9 +120,11 @@ function publicUserFromDoc(userDoc) {
     id: userDoc.id,
     isAdmin: normalizedRole === 'admin',
     nickname: data.nickname,
+    nicknameKey: data.nicknameKey ?? '',
     profileImageUrl: data.profileImageUrl ?? '',
     role: normalizedRole,
     status: data.status ?? 'approved',
+    temporaryPinIssuedAt: data.temporaryPinIssuedAt ?? null,
   };
 }
 
@@ -117,20 +138,41 @@ export function subscribeAuthUser(callback) {
   requireFirebase();
   let unsubscribeUserDoc = () => {};
 
-  const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+  const subscribeSessionUser = (userId) => {
     unsubscribeUserDoc();
     unsubscribeUserDoc = () => {};
 
-    if (!firebaseUser) {
+    if (!userId) {
       callback(null);
       return;
     }
 
     unsubscribeUserDoc = onSnapshot(
-      doc(db, 'users', firebaseUser.uid),
-      (userDoc) => callback(publicUserFromDoc(userDoc)),
+      doc(db, 'users', userId),
+      (userDoc) => {
+        const appUser = publicUserFromDoc(userDoc);
+
+        if (!appUser || appUser.status === 'deleted') {
+          localStorage.removeItem(SESSION_STORAGE_KEY);
+          callback(null);
+          return;
+        }
+
+        callback(appUser);
+      },
       () => callback(null),
     );
+  };
+
+  subscribeSessionUser(localStorage.getItem(SESSION_STORAGE_KEY));
+
+  const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+    if (!firebaseUser || localStorage.getItem(SESSION_STORAGE_KEY)) {
+      return;
+    }
+
+    localStorage.setItem(SESSION_STORAGE_KEY, firebaseUser.uid);
+    subscribeSessionUser(firebaseUser.uid);
   });
 
   return () => {
@@ -152,14 +194,14 @@ export async function signUpWithNickname({ nickname, pin }) {
   }
 
   const nicknameKey = await getNicknameKey(normalizedNickname);
+  const pinSalt = createSalt();
+  const pinHash = await hashPin(pin, pinSalt);
   const usernameRef = doc(db, 'usernames', nicknameKey);
   const existingUsername = await getDoc(usernameRef);
 
   if (existingUsername.exists()) {
     throw new Error('이미 사용 중인 닉네임입니다.');
   }
-
-  const credential = await createUserWithEmailAndPassword(auth, await getAuthEmail(normalizedNickname), pin);
 
   try {
     await runTransaction(db, async (transaction) => {
@@ -170,13 +212,15 @@ export async function signUpWithNickname({ nickname, pin }) {
       }
 
       transaction.set(usernameRef, {
-        uid: credential.user.uid,
+        uid: nicknameKey,
         nickname: normalizedNickname,
         createdAt: serverTimestamp(),
       });
-      transaction.set(doc(db, 'users', credential.user.uid), {
+      transaction.set(doc(db, 'users', nicknameKey), {
         nickname: normalizedNickname,
         nicknameKey,
+        pinHash,
+        pinSalt,
         profileImageUrl: '',
         status: 'pending',
         createdAt: serverTimestamp(),
@@ -184,12 +228,13 @@ export async function signUpWithNickname({ nickname, pin }) {
       });
     });
   } catch (caughtError) {
-    await deleteUser(credential.user).catch(() => {});
     throw caughtError;
   }
 
+  localStorage.setItem(SESSION_STORAGE_KEY, nicknameKey);
+
   return {
-    id: credential.user.uid,
+    id: nicknameKey,
     isAdmin: false,
     nickname: normalizedNickname,
     profileImageUrl: '',
@@ -210,13 +255,42 @@ export async function loginWithNickname({ nickname, pin }) {
   }
 
   try {
-    const credential = await signInWithEmailAndPassword(auth, await getAuthEmail(normalizedNickname), pin);
-    const appUser = await getUserByUid(credential.user.uid);
+    const nicknameKey = await getNicknameKey(normalizedNickname);
+    const usernameDoc = await getDoc(doc(db, 'usernames', nicknameKey));
+
+    if (!usernameDoc.exists()) {
+      throw new Error('닉네임 또는 PIN이 일치하지 않습니다.');
+    }
+
+    const userId = usernameDoc.data().uid;
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    const userData = userDoc.data();
+    let appUser = publicUserFromDoc(userDoc);
 
     if (!appUser) {
       throw new Error('사용자 정보가 없습니다.');
     }
 
+    if (appUser.status === 'deleted') {
+      throw new Error('삭제 처리된 계정입니다.');
+    }
+
+    if (userData?.pinHash && userData?.pinSalt) {
+      const enteredPinHash = await hashPin(pin, userData.pinSalt);
+
+      if (enteredPinHash !== userData.pinHash) {
+        throw new Error('닉네임 또는 PIN이 일치하지 않습니다.');
+      }
+    } else {
+      const credential = await signInWithEmailAndPassword(auth, await getAuthEmail(normalizedNickname), pin);
+      appUser = await getUserByUid(credential.user.uid);
+
+      if (!appUser) {
+        throw new Error('사용자 정보가 없습니다.');
+      }
+    }
+
+    localStorage.setItem(SESSION_STORAGE_KEY, appUser.id);
     return appUser;
   } catch (caughtError) {
     if (
@@ -233,7 +307,8 @@ export async function loginWithNickname({ nickname, pin }) {
 
 export function logout() {
   requireFirebase();
-  return signOut(auth);
+  localStorage.removeItem(SESSION_STORAGE_KEY);
+  return signOut(auth).catch(() => {});
 }
 
 export function subscribeProfiles(callback, onError) {
@@ -349,6 +424,7 @@ export function subscribeUsers(callback, onError) {
         .map((userDoc) => ({
           id: userDoc.id,
           ...userDoc.data(),
+          role: String(userDoc.data().role ?? '').trim().toLowerCase(),
           status: userDoc.data().status ?? 'approved',
         }))
         .sort((firstUser, secondUser) => {
@@ -368,6 +444,95 @@ export function approveUser(userId) {
     status: 'approved',
     updatedAt: serverTimestamp(),
   });
+}
+
+export function rejectUser(userId) {
+  requireFirebase();
+  return updateDoc(doc(db, 'users', userId), {
+    status: 'rejected',
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export function updateUserAdminFields(userId, updates) {
+  requireFirebase();
+  return updateDoc(doc(db, 'users', userId), {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteUserAccount(user) {
+  requireFirebase();
+  const nicknameKey = user.nicknameKey || (user.nickname ? await getNicknameKey(user.nickname) : '');
+
+  const [profilesSnapshot, schedulesSnapshot, commentsSnapshot] = await Promise.all([
+    getDocs(query(collection(db, 'profiles'), where('ownerId', '==', user.id))),
+    getDocs(collection(db, 'schedules')),
+    getDocs(collection(db, 'scheduleComments')),
+  ]);
+
+  const ownedScheduleIds = new Set(
+    schedulesSnapshot.docs
+      .filter((scheduleDoc) => scheduleDoc.data().ownerId === user.id)
+      .map((scheduleDoc) => scheduleDoc.id),
+  );
+  const batch = writeBatch(db);
+
+  profilesSnapshot.docs.forEach((profileDoc) => {
+    batch.delete(profileDoc.ref);
+  });
+
+  schedulesSnapshot.docs.forEach((scheduleDoc) => {
+    const schedule = scheduleDoc.data();
+
+    if (schedule.ownerId === user.id) {
+      batch.delete(scheduleDoc.ref);
+      return;
+    }
+
+    if (Array.isArray(schedule.participantIds) && schedule.participantIds.includes(user.id)) {
+      batch.update(scheduleDoc.ref, {
+        participantIds: schedule.participantIds.filter((participantId) => participantId !== user.id),
+        participants: Array.isArray(schedule.participants)
+          ? schedule.participants.filter((participant) => participant !== user.nickname)
+          : [],
+        updatedAt: serverTimestamp(),
+      });
+    }
+  });
+
+  commentsSnapshot.docs.forEach((commentDoc) => {
+    const comment = commentDoc.data();
+
+    if (comment.ownerId === user.id || ownedScheduleIds.has(comment.scheduleId)) {
+      batch.delete(commentDoc.ref);
+    }
+  });
+
+  batch.delete(doc(db, 'users', user.id));
+
+  if (nicknameKey) {
+    batch.delete(doc(db, 'usernames', nicknameKey));
+  }
+
+  await batch.commit();
+}
+
+export async function issueTemporaryPin(userId) {
+  requireFirebase();
+  const temporaryPin = createTemporaryPin();
+  const pinSalt = createSalt();
+  const pinHash = await hashPin(temporaryPin, pinSalt);
+
+  await updateDoc(doc(db, 'users', userId), {
+    temporaryPinIssuedAt: serverTimestamp(),
+    pinHash,
+    pinSalt,
+    updatedAt: serverTimestamp(),
+  });
+
+  return temporaryPin;
 }
 
 export function createSchedule(schedule, currentUser) {
