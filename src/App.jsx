@@ -407,6 +407,7 @@ function App() {
 
       <div className="section-tabs" aria-label="콘텐츠 탭">
         <button
+          aria-pressed={activeSection === 'schedules'}
           className={activeSection === 'schedules' ? 'active-tab' : ''}
           type="button"
           onClick={() => setActiveSection('schedules')}
@@ -414,6 +415,7 @@ function App() {
           일정
         </button>
         <button
+          aria-pressed={activeSection === 'profiles'}
           className={activeSection === 'profiles' ? 'active-tab' : ''}
           type="button"
           onClick={() => setActiveSection('profiles')}

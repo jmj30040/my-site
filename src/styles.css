@@ -163,11 +163,11 @@ textarea {
   box-shadow: 0 1px 4px rgb(23 32 51 / 10%);
 }
 
-.tab-panel {
+.workspace.tab-panel {
   display: none;
 }
 
-.tab-panel.active-panel {
+.workspace.tab-panel.active-panel {
   display: grid;
 }
 
