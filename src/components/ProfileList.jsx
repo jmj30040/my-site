@@ -1,3 +1,18 @@
+const tierClassNames = {
+  브론즈: 'tier-bronze',
+  실버: 'tier-silver',
+  골드: 'tier-gold',
+  플래티넘: 'tier-platinum',
+  다이아몬드: 'tier-diamond',
+  마스터: 'tier-master',
+  그랜드마스터: 'tier-grandmaster',
+  챔피언: 'tier-champion',
+};
+
+function getTierClassName(tier) {
+  return tierClassNames[tier] ?? '';
+}
+
 export function ProfileList({ currentUser, profiles, onEdit, onDelete }) {
   if (profiles.length === 0) {
     return <p className="empty-state">조건에 맞는 친구 프로필이 아직 없습니다.</p>;
@@ -25,7 +40,7 @@ export function ProfileList({ currentUser, profiles, onEdit, onDelete }) {
                 </div>
               </div>
               <div className="badges">
-                <span>{profile.tier}</span>
+                <span className={`tier-badge ${getTierClassName(profile.tier)}`}>{profile.tier}</span>
                 <span>{profile.role}</span>
               </div>
             </div>

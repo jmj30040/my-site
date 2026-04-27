@@ -12,6 +12,17 @@ const emptyProfile = {
   profileImageFile: null,
 };
 
+const tierClassNames = {
+  브론즈: 'tier-bronze',
+  실버: 'tier-silver',
+  골드: 'tier-gold',
+  플래티넘: 'tier-platinum',
+  다이아몬드: 'tier-diamond',
+  마스터: 'tier-master',
+  그랜드마스터: 'tier-grandmaster',
+  챔피언: 'tier-champion',
+};
+
 export function ProfileForm({ currentUser, initialProfile, isSubmitting = false, submittingLabel = '', onSubmit }) {
   const normalizedProfile = initialProfile
     ? {
@@ -111,7 +122,7 @@ export function ProfileForm({ currentUser, initialProfile, isSubmitting = false,
       </label>
       <label>
         티어
-        <select name="tier" value={form.tier} onChange={handleChange}>
+        <select className={`tier-select ${tierClassNames[form.tier] ?? ''}`} name="tier" value={form.tier} onChange={handleChange}>
           {TIERS.map((tier) => (
             <option key={tier} value={tier}>
               {tier}
