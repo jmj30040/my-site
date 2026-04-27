@@ -113,6 +113,12 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (activeSection === 'admin' && !currentUser?.isAdmin) {
+      setActiveSection('schedules');
+    }
+  }, [activeSection, currentUser]);
+
   const isApprovedUser = Boolean(currentUser && (currentUser.status === 'approved' || currentUser.isAdmin));
 
   const myProfile = useMemo(() => {
@@ -541,19 +547,7 @@ function App() {
       )}
       {error && <p className="error-message">{error}</p>}
 
-      {currentUser?.isAdmin && (
-        <AdminUserPanel
-          currentUser={currentUser}
-          users={users}
-          onApprove={handleApproveUser}
-          onDelete={handleDeleteUser}
-          onReject={handleRejectUser}
-          onRequestPasswordReset={handleRequestPasswordReset}
-          onUpdateUser={handleUpdateUser}
-        />
-      )}
-
-      <div className="section-tabs" aria-label="콘텐츠 탭">
+      <div className={`section-tabs ${currentUser?.isAdmin ? 'section-tabs-admin' : ''}`} aria-label="콘텐츠 탭">
         <button
           aria-pressed={activeSection === 'schedules'}
           className={activeSection === 'schedules' ? 'active-tab' : ''}
@@ -570,7 +564,31 @@ function App() {
         >
           티어표
         </button>
+        {currentUser?.isAdmin && (
+          <button
+            aria-pressed={activeSection === 'admin'}
+            className={activeSection === 'admin' ? 'active-tab' : ''}
+            type="button"
+            onClick={() => setActiveSection('admin')}
+          >
+            회원관리
+          </button>
+        )}
       </div>
+
+      {currentUser?.isAdmin && (
+        <section className={`tab-panel admin-tab-panel ${activeSection === 'admin' ? 'active-panel' : ''}`}>
+          <AdminUserPanel
+            currentUser={currentUser}
+            users={users}
+            onApprove={handleApproveUser}
+            onDelete={handleDeleteUser}
+            onReject={handleRejectUser}
+            onRequestPasswordReset={handleRequestPasswordReset}
+            onUpdateUser={handleUpdateUser}
+          />
+        </section>
+      )}
 
       <section className={`workspace tab-panel ${activeSection === 'profiles' ? 'active-panel' : ''}`}>
         <div className="panel">

@@ -169,6 +169,10 @@ textarea {
   width: fit-content;
 }
 
+.section-tabs-admin {
+  grid-template-columns: repeat(3, minmax(0, 180px));
+}
+
 .section-tabs button {
   background: transparent;
   min-height: 40px;
@@ -180,11 +184,11 @@ textarea {
   box-shadow: 0 1px 4px rgb(23 32 51 / 10%);
 }
 
-.workspace.tab-panel {
+.tab-panel {
   display: none;
 }
 
-.workspace.tab-panel.active-panel {
+.tab-panel.active-panel {
   display: grid;
 }
 
@@ -245,7 +249,6 @@ textarea {
   border-radius: 8px;
   display: grid;
   gap: 14px;
-  margin-top: 18px;
   padding: 18px;
 }
 
@@ -333,6 +336,10 @@ textarea {
   display: grid;
   gap: 18px;
   grid-template-columns: minmax(320px, 0.9fr) minmax(320px, 1.1fr);
+  margin-top: 18px;
+}
+
+.admin-tab-panel {
   margin-top: 18px;
 }
 
@@ -725,6 +732,10 @@ textarea {
     top: 8px;
     width: 100%;
     z-index: 5;
+  }
+
+  .section-tabs-admin {
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .section-tabs button {
