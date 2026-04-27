@@ -51,7 +51,7 @@ function App() {
   const [editingSchedule, setEditingSchedule] = useState(null);
   const [tierFilter, setTierFilter] = useState('전체');
   const [roleFilter, setRoleFilter] = useState('전체');
-  const [activeMobileSection, setActiveMobileSection] = useState('schedules');
+  const [activeSection, setActiveSection] = useState('schedules');
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isProfileSaving, setIsProfileSaving] = useState(false);
@@ -405,24 +405,24 @@ function App() {
       {notice && <p className="success-message">{notice}</p>}
       {error && <p className="error-message">{error}</p>}
 
-      <div className="mobile-section-tabs" aria-label="콘텐츠 탭">
+      <div className="section-tabs" aria-label="콘텐츠 탭">
         <button
-          className={activeMobileSection === 'schedules' ? 'active-tab' : ''}
+          className={activeSection === 'schedules' ? 'active-tab' : ''}
           type="button"
-          onClick={() => setActiveMobileSection('schedules')}
+          onClick={() => setActiveSection('schedules')}
         >
           일정
         </button>
         <button
-          className={activeMobileSection === 'profiles' ? 'active-tab' : ''}
+          className={activeSection === 'profiles' ? 'active-tab' : ''}
           type="button"
-          onClick={() => setActiveMobileSection('profiles')}
+          onClick={() => setActiveSection('profiles')}
         >
           티어표
         </button>
       </div>
 
-      <section className={`workspace mobile-tab-panel ${activeMobileSection === 'profiles' ? 'active-mobile-panel' : ''}`}>
+      <section className={`workspace tab-panel ${activeSection === 'profiles' ? 'active-panel' : ''}`}>
         <div className="panel">
           <div className="section-heading">
             <div>
@@ -483,7 +483,7 @@ function App() {
         </div>
       </section>
 
-      <section className={`workspace mobile-tab-panel ${activeMobileSection === 'schedules' ? 'active-mobile-panel' : ''}`}>
+      <section className={`workspace tab-panel ${activeSection === 'schedules' ? 'active-panel' : ''}`}>
         <div className="panel">
           <div className="section-heading">
             <div>
