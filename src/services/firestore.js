@@ -21,6 +21,9 @@ import {
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { auth, db, storage } from '../firebase';
 
+const PROFILE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const PROFILE_IMAGE_UPLOAD_TIMEOUT_MS = 30000;
+
 function requireFirebase() {
   if (!auth || !db) {
     throw new Error('Firebase 환경변수가 설정되지 않았습니다.');
@@ -36,6 +39,40 @@ function requireStorage() {
   if (!storage) {
     throw new Error('Firebase Storage 환경변수가 설정되지 않았습니다.');
   }
+}
+
+function withTimeout(promise, timeoutMs, timeoutMessage) {
+  let timeoutId;
+
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    window.clearTimeout(timeoutId);
+  });
+}
+
+function getStorageErrorMessage(caughtError) {
+  if (caughtError.message === '이미지 업로드 시간이 초과되었습니다. 네트워크 상태와 Firebase Storage 설정을 확인해주세요.') {
+    return caughtError.message;
+  }
+
+  if (caughtError.code === 'storage/unauthorized') {
+    return '이미지 업로드 권한이 없습니다. Firebase Storage Rules에서 로그인한 사용자의 업로드를 허용해주세요.';
+  }
+
+  if (caughtError.code === 'storage/quota-exceeded') {
+    return 'Firebase Storage 용량 또는 사용량 한도를 초과했습니다.';
+  }
+
+  if (caughtError.code === 'storage/retry-limit-exceeded' || caughtError.code === 'storage/canceled') {
+    return '이미지 업로드가 완료되지 않았습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요.';
+  }
+
+  return caughtError.message;
 }
 
 function normalizeNickname(nickname) {
@@ -217,10 +254,27 @@ export async function uploadProfileImage(userId, imageFile) {
     throw new Error('이미지 파일만 업로드할 수 있습니다.');
   }
 
+  if (imageFile.size > PROFILE_IMAGE_MAX_BYTES) {
+    throw new Error('프로필 이미지는 5MB 이하만 업로드할 수 있습니다.');
+  }
+
   const extension = imageFile.name.includes('.') ? imageFile.name.split('.').pop() : 'jpg';
   const imageRef = ref(storage, `profile-images/${userId}/${Date.now()}.${extension}`);
-  const snapshot = await uploadBytes(imageRef, imageFile);
-  return getDownloadURL(snapshot.ref);
+
+  try {
+    const snapshot = await withTimeout(
+      uploadBytes(imageRef, imageFile),
+      PROFILE_IMAGE_UPLOAD_TIMEOUT_MS,
+      '이미지 업로드 시간이 초과되었습니다. 네트워크 상태와 Firebase Storage 설정을 확인해주세요.',
+    );
+    return await withTimeout(
+      getDownloadURL(snapshot.ref),
+      PROFILE_IMAGE_UPLOAD_TIMEOUT_MS,
+      '이미지 주소를 가져오는 시간이 초과되었습니다. Firebase Storage 설정을 확인해주세요.',
+    );
+  } catch (caughtError) {
+    throw new Error(getStorageErrorMessage(caughtError));
+  }
 }
 
 export function createProfile(profile, currentUser) {

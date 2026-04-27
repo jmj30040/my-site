@@ -7,6 +7,7 @@
 - Frontend: React, Vite, CSS
 - Auth: Firebase Authentication Email/Password
 - Database: Firebase Cloud Firestore
+- Storage: Firebase Storage
 - Deploy: GitHub Pages, GitHub Actions
 
 ## 로그인 방식
@@ -125,8 +126,9 @@ my-site/
 1. Firebase Console에서 프로젝트를 만듭니다.
 2. Firestore Database를 생성합니다.
 3. `Authentication` > `Sign-in method`에서 `Email/Password`를 활성화합니다.
-4. 웹 앱을 추가한 뒤 Firebase 설정 값을 복사합니다.
-5. `.env.example`을 `.env`로 복사하고 값을 채웁니다.
+4. `Storage`를 생성합니다. 프로필 이미지 업로드에 필요합니다.
+5. 웹 앱을 추가한 뒤 Firebase 설정 값을 복사합니다.
+6. `.env.example`을 `.env`로 복사하고 값을 채웁니다.
 
 ```powershell
 Copy-Item .env.example .env
@@ -201,6 +203,28 @@ service cloud.firestore {
 ```
 
 참고: 일정 참여/참여 취소는 작성자가 아닌 사용자도 `participants`, `participantIds`만 바꿀 수 있게 허용합니다.
+
+## Storage Rules
+
+Firebase Console > Storage > Rules에 아래 규칙을 게시하세요.
+
+```js
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /profile-images/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+  }
+}
+```
+
+이미지를 저장할 때 "저장 중"에서 오래 멈추면 Storage가 생성되어 있는지, `VITE_FIREBASE_STORAGE_BUCKET` 값이 Firebase 웹 앱 설정의 `storageBucket`과 같은지, 위 Storage Rules가 게시되어 있는지 확인하세요.
 
 ## 실행 방법
 
