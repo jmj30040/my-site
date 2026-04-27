@@ -52,7 +52,7 @@ export function ScheduleList({
       {schedules.map((schedule) => {
         const participants = schedule.participants ?? [];
         const participantIds = schedule.participantIds ?? [];
-        const canManage = currentUser?.id === schedule.ownerId;
+        const canManage = currentUser?.isAdmin || currentUser?.id === schedule.ownerId;
         const isJoined = Boolean(
           currentUser && (participantIds.includes(currentUser.id) || participants.includes(currentUser.nickname)),
         );
@@ -99,7 +99,7 @@ export function ScheduleList({
               {comments.length > 0 ? (
                 <div className="comment-list">
                   {comments.map((comment) => {
-                    const canDeleteComment = currentUser?.id === comment.ownerId;
+                    const canDeleteComment = currentUser?.isAdmin || currentUser?.id === comment.ownerId;
                     const commentTime = formatCommentTime(comment.createdAt);
 
                     return (

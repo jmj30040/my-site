@@ -197,7 +197,7 @@ function App() {
       return false;
     }
 
-    if (editingProfile && editingProfile.ownerId !== currentUser.id) {
+    if (editingProfile && editingProfile.ownerId !== currentUser.id && !currentUser.isAdmin) {
       setError('본인이 등록한 프로필만 수정할 수 있습니다.');
       return false;
     }
@@ -253,7 +253,7 @@ function App() {
 
     try {
       if (editingSchedule) {
-        if (editingSchedule.ownerId !== currentUser.id) {
+        if (editingSchedule.ownerId !== currentUser.id && !currentUser.isAdmin) {
           setError('본인이 등록한 일정만 수정할 수 있습니다.');
           return;
         }
@@ -275,7 +275,7 @@ function App() {
       return;
     }
 
-    if (profile.ownerId !== currentUser.id) {
+    if (profile.ownerId !== currentUser.id && !currentUser.isAdmin) {
       setError('본인이 등록한 프로필만 삭제할 수 있습니다.');
       return;
     }
@@ -292,7 +292,7 @@ function App() {
       return;
     }
 
-    if (schedule.ownerId !== currentUser.id) {
+    if (schedule.ownerId !== currentUser.id && !currentUser.isAdmin) {
       setError('본인이 등록한 일정만 삭제할 수 있습니다.');
       return;
     }
@@ -353,7 +353,7 @@ function App() {
       return;
     }
 
-    if (comment.ownerId !== currentUser.id) {
+    if (comment.ownerId !== currentUser.id && !currentUser.isAdmin) {
       setError('본인이 작성한 댓글만 삭제할 수 있습니다.');
       return;
     }

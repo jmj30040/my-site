@@ -97,6 +97,7 @@ function publicUserFromDoc(userDoc) {
   const data = userDoc.data();
   return {
     id: userDoc.id,
+    isAdmin: data.role === 'admin',
     nickname: data.nickname,
     profileImageUrl: data.profileImageUrl ?? '',
   };
@@ -176,6 +177,7 @@ export async function signUpWithNickname({ nickname, pin }) {
 
   return {
     id: credential.user.uid,
+    isAdmin: false,
     nickname: normalizedNickname,
     profileImageUrl: '',
   };

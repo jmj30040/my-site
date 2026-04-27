@@ -28,7 +28,7 @@ export function ProfileList({ currentUser, profiles, onEdit, onDelete }) {
     <>
       <div className="card-list">
         {profiles.map((profile) => {
-          const canManage = currentUser?.id === profile.ownerId;
+          const canManage = currentUser?.isAdmin || currentUser?.id === profile.ownerId;
           const imageAlt = `${profile.ownerNickname} 프로필 이미지`;
 
           return (

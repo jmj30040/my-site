@@ -166,10 +166,24 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
     match /users/{userId} {
       allow read: if true;
-      allow create, update: if request.auth != null
-        && request.auth.uid == userId;
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && !request.resource.data.keys().hasAny(['role']);
+      allow update: if request.auth != null
+        && (
+          (
+            request.auth.uid == userId
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])
+          )
+          || isAdmin()
+        );
     }
 
     match /usernames/{nicknameKey} {
@@ -184,10 +198,16 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.ownerId == request.auth.uid;
       allow update: if request.auth != null
-        && resource.data.ownerId == request.auth.uid
-        && request.resource.data.ownerId == resource.data.ownerId;
+        && request.resource.data.ownerId == resource.data.ownerId
+        && (
+          resource.data.ownerId == request.auth.uid
+          || isAdmin()
+        );
       allow delete: if request.auth != null
-        && resource.data.ownerId == request.auth.uid;
+        && (
+          resource.data.ownerId == request.auth.uid
+          || isAdmin()
+        );
     }
 
     match /schedules/{scheduleId} {
@@ -197,7 +217,7 @@ service cloud.firestore {
       allow update: if request.auth != null
         && (
           (
-            resource.data.ownerId == request.auth.uid
+            (resource.data.ownerId == request.auth.uid || isAdmin())
             && request.resource.data.ownerId == resource.data.ownerId
           )
           || request.resource.data.diff(resource.data).affectedKeys()
@@ -208,7 +228,10 @@ service cloud.firestore {
             )
         );
       allow delete: if request.auth != null
-        && resource.data.ownerId == request.auth.uid;
+        && (
+          resource.data.ownerId == request.auth.uid
+          || isAdmin()
+        );
     }
 
     match /scheduleComments/{commentId} {
@@ -220,7 +243,10 @@ service cloud.firestore {
         && request.resource.data.message.size() > 0
         && request.resource.data.message.size() <= 160;
       allow delete: if request.auth != null
-        && resource.data.ownerId == request.auth.uid;
+        && (
+          resource.data.ownerId == request.auth.uid
+          || isAdmin()
+        );
       allow update: if false;
     }
   }
@@ -228,6 +254,8 @@ service cloud.firestore {
 ```
 
 참고: 일정 참여/참여 취소는 작성자가 아닌 사용자도 `participants`, `participantIds`만 바꿀 수 있게 허용합니다.
+
+관리자 계정은 Firebase Console에서 해당 사용자의 `users/{uid}` 문서에 `role: 'admin'` 필드를 추가하면 됩니다. 관리자 권한은 다시 로그인하거나 페이지를 새로고침한 뒤 반영됩니다.
 
 ## 프로필 이미지
 

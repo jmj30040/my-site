@@ -42,6 +42,7 @@ export function ProfileForm({ currentUser, initialProfile, isSubmitting = false,
   const [form, setForm] = useState(normalizedProfile);
   const [previewUrl, setPreviewUrl] = useState(normalizedProfile.profileImageUrl);
   const fileInputRef = useRef(null);
+  const displayNickname = initialProfile?.ownerNickname ?? currentUser?.nickname ?? '';
 
   useEffect(() => {
     setPreviewUrl(normalizedProfile.profileImageUrl);
@@ -102,7 +103,7 @@ export function ProfileForm({ currentUser, initialProfile, isSubmitting = false,
     <form className="form-grid" onSubmit={handleSubmit}>
       <label>
         닉네임
-        <input value={currentUser?.nickname ?? ''} disabled placeholder="로그인 후 자동 입력" />
+        <input value={displayNickname} disabled placeholder="로그인 후 자동 입력" />
       </label>
       <label className="profile-image-field">
         프로필 이미지
