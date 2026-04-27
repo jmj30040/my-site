@@ -85,7 +85,11 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!isFirebaseConfigured) {
+    if (!isFirebaseConfigured || !currentUser) {
+      setProfiles([]);
+      setSchedules([]);
+      setScheduleComments([]);
+      setUsers([]);
       return undefined;
     }
 
@@ -113,7 +117,7 @@ function App() {
       unsubscribeScheduleComments();
       unsubscribeUsers();
     };
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     if (activeSection === 'admin' && !currentUser?.isAdmin) {
@@ -636,30 +640,36 @@ function App() {
               </button>
             )}
           </div>
-          <div className="filters">
-            <select value={tierFilter} onChange={(event) => setTierFilter(event.target.value)}>
-              <option value="전체">티어 전체</option>
-              {TIERS.map((tier) => (
-                <option key={tier} value={tier}>
-                  {tier}
-                </option>
-              ))}
-            </select>
-            <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
-              <option value="전체">역할 전체</option>
-              {ROLES.map((role) => (
-                <option key={role} value={role}>
-                  {role}
-                </option>
-              ))}
-            </select>
-          </div>
-          <ProfileList
-            currentUser={isApprovedUser ? currentUser : null}
-            profiles={filteredProfiles}
-            onDelete={handleDeleteProfile}
-            onEdit={handleEditProfile}
-          />
+          {currentUser ? (
+            <>
+              <div className="filters">
+                <select value={tierFilter} onChange={(event) => setTierFilter(event.target.value)}>
+                  <option value="전체">티어 전체</option>
+                  {TIERS.map((tier) => (
+                    <option key={tier} value={tier}>
+                      {tier}
+                    </option>
+                  ))}
+                </select>
+                <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
+                  <option value="전체">역할 전체</option>
+                  {ROLES.map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <ProfileList
+                currentUser={isApprovedUser ? currentUser : null}
+                profiles={filteredProfiles}
+                onDelete={handleDeleteProfile}
+                onEdit={handleEditProfile}
+              />
+            </>
+          ) : (
+            <p className="empty-state">로그인 후 프로필 목록을 볼 수 있습니다.</p>
+          )}
         </div>
 
         {isProfileFormOpen && (
@@ -702,17 +712,21 @@ function App() {
               </button>
             )}
           </div>
-          <ScheduleList
-            commentsBySchedule={commentsBySchedule}
-            currentUser={isApprovedUser ? currentUser : null}
-            schedules={schedules}
-            onAddComment={handleAddScheduleComment}
-            onDeleteComment={handleDeleteScheduleComment}
-            onDelete={handleDeleteSchedule}
-            onEdit={handleEditSchedule}
-            onJoin={handleJoinSchedule}
-            onLeave={handleLeaveSchedule}
-          />
+          {currentUser ? (
+            <ScheduleList
+              commentsBySchedule={commentsBySchedule}
+              currentUser={isApprovedUser ? currentUser : null}
+              schedules={schedules}
+              onAddComment={handleAddScheduleComment}
+              onDeleteComment={handleDeleteScheduleComment}
+              onDelete={handleDeleteSchedule}
+              onEdit={handleEditSchedule}
+              onJoin={handleJoinSchedule}
+              onLeave={handleLeaveSchedule}
+            />
+          ) : (
+            <p className="empty-state">로그인 후 일정 목록을 볼 수 있습니다.</p>
+          )}
         </div>
 
         {isScheduleFormOpen && (
