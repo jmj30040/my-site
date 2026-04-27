@@ -630,7 +630,7 @@ function App() {
               <p className="eyebrow">Find Friends</p>
               <h2>프로필 목록</h2>
             </div>
-            {isApprovedUser && (
+            {isApprovedUser && !isProfileFormOpen && (
               <button className="primary-button" onClick={handleOpenProfileForm} type="button">
                 {myProfile ? '내 프로필 수정' : '프로필 등록'}
               </button>
@@ -696,7 +696,7 @@ function App() {
               <p className="eyebrow">Party Queue</p>
               <h2>일정 목록</h2>
             </div>
-            {isApprovedUser && (
+            {isApprovedUser && !isScheduleFormOpen && (
               <button className="primary-button" onClick={handleOpenScheduleForm} type="button">
                 일정 등록
               </button>
