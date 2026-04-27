@@ -358,6 +358,112 @@ export async function changeCurrentUserPin(currentUser, { currentPin, newPin }) 
   });
 }
 
+export async function changeCurrentUserNickname(currentUser, nickname) {
+  requireFirebase();
+  const normalizedNickname = normalizeNickname(nickname);
+
+  if (!currentUser?.id || !currentUser?.nickname) {
+    throw new Error('로그인 정보가 없습니다.');
+  }
+
+  if (!normalizedNickname) {
+    throw new Error('새 닉네임을 입력해주세요.');
+  }
+
+  const oldNickname = currentUser.nickname;
+  const oldNicknameKey = currentUser.nicknameKey || await getNicknameKey(oldNickname);
+  const nextNicknameKey = await getNicknameKey(normalizedNickname);
+
+  if (oldNicknameKey === nextNicknameKey) {
+    throw new Error('현재 닉네임과 다른 닉네임을 입력해주세요.');
+  }
+
+  await runTransaction(db, async (transaction) => {
+    const userRef = doc(db, 'users', currentUser.id);
+    const oldUsernameRef = doc(db, 'usernames', oldNicknameKey);
+    const nextUsernameRef = doc(db, 'usernames', nextNicknameKey);
+    const userDoc = await transaction.get(userRef);
+    const nextUsernameDoc = await transaction.get(nextUsernameRef);
+
+    if (!userDoc.exists()) {
+      throw new Error('사용자 정보가 없습니다.');
+    }
+
+    const userData = userDoc.data();
+
+    if (!userData.pinHash || !userData.pinSalt) {
+      throw new Error('먼저 PIN 변경을 완료한 뒤 닉네임을 변경해주세요.');
+    }
+
+    if (nextUsernameDoc.exists() && nextUsernameDoc.data().uid !== currentUser.id) {
+      throw new Error('이미 사용 중인 닉네임입니다.');
+    }
+
+    transaction.set(nextUsernameRef, {
+      uid: currentUser.id,
+      nickname: normalizedNickname,
+      createdAt: serverTimestamp(),
+    });
+    transaction.delete(oldUsernameRef);
+    transaction.update(userRef, {
+      nickname: normalizedNickname,
+      nicknameKey: nextNicknameKey,
+      updatedAt: serverTimestamp(),
+    });
+  });
+
+  const [profilesSnapshot, schedulesSnapshot, commentsSnapshot] = await Promise.all([
+    getDocs(query(collection(db, 'profiles'), where('ownerId', '==', currentUser.id))),
+    getDocs(collection(db, 'schedules')),
+    getDocs(query(collection(db, 'scheduleComments'), where('ownerId', '==', currentUser.id))),
+  ]);
+  const batch = writeBatch(db);
+
+  profilesSnapshot.docs.forEach((profileDoc) => {
+    batch.update(profileDoc.ref, {
+      ownerNickname: normalizedNickname,
+      updatedAt: serverTimestamp(),
+    });
+  });
+
+  schedulesSnapshot.docs.forEach((scheduleDoc) => {
+    const schedule = scheduleDoc.data();
+    const updates = {};
+
+    if (schedule.ownerId === currentUser.id) {
+      updates.ownerNickname = normalizedNickname;
+    }
+
+    if (Array.isArray(schedule.participants)) {
+      const participantIds = Array.isArray(schedule.participantIds) ? schedule.participantIds : [];
+      const participants = schedule.participants.map((participant, index) => (
+        participantIds[index] === currentUser.id || participant === oldNickname
+          ? normalizedNickname
+          : participant
+      ));
+
+      if (participants.some((participant, index) => participant !== schedule.participants[index])) {
+        updates.participants = participants;
+      }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      batch.update(scheduleDoc.ref, {
+        ...updates,
+        updatedAt: serverTimestamp(),
+      });
+    }
+  });
+
+  commentsSnapshot.docs.forEach((commentDoc) => {
+    batch.update(commentDoc.ref, {
+      ownerNickname: normalizedNickname,
+    });
+  });
+
+  await batch.commit();
+}
+
 export function subscribeProfiles(callback, onError) {
   const profilesQuery = query(getCollection('profiles'), orderBy('createdAt', 'desc'));
 

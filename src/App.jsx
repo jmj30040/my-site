@@ -11,6 +11,7 @@ import {
   createProfile,
   createSchedule,
   createScheduleComment,
+  changeCurrentUserNickname,
   changeCurrentUserPin,
   approveUser,
   deleteScheduleComment,
@@ -292,6 +293,24 @@ function App() {
     }
   };
 
+  const handleChangeNickname = async (nickname) => {
+    setError('');
+    setNotice('');
+    setTemporaryPinNotice(null);
+    setIsAuthLoading(true);
+
+    try {
+      await changeCurrentUserNickname(currentUser, nickname);
+      setNotice('닉네임이 변경되었습니다. 다음 로그인부터 새 닉네임을 사용해주세요.');
+      return true;
+    } catch (caughtError) {
+      setError(caughtError.message);
+      return false;
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
   const handleSubmitSchedule = async (schedule) => {
     setError('');
 
@@ -548,6 +567,7 @@ function App() {
         <AuthPanel
           currentUser={currentUser}
           isAuthLoading={isAuthLoading}
+          onChangeNickname={handleChangeNickname}
           onChangePin={handleChangePin}
           onLogin={handleLogin}
           onLogout={handleLogout}

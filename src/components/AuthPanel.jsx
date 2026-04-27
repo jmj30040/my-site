@@ -10,10 +10,20 @@ const emptyPinForm = {
   newPin: '',
 };
 
-export function AuthPanel({ currentUser, isAuthLoading, onChangePin, onLogin, onLogout, onSignUp }) {
+export function AuthPanel({
+  currentUser,
+  isAuthLoading,
+  onChangeNickname,
+  onChangePin,
+  onLogin,
+  onLogout,
+  onSignUp,
+}) {
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState(emptyAuthForm);
+  const [isNicknameFormOpen, setIsNicknameFormOpen] = useState(false);
   const [isPinFormOpen, setIsPinFormOpen] = useState(false);
+  const [nicknameForm, setNicknameForm] = useState('');
   const [pinForm, setPinForm] = useState(emptyPinForm);
 
   const handleChange = (event) => {
@@ -49,6 +59,16 @@ export function AuthPanel({ currentUser, isAuthLoading, onChangePin, onLogin, on
     }
   };
 
+  const handleNicknameSubmit = async (event) => {
+    event.preventDefault();
+    const isSuccess = await onChangeNickname(nicknameForm);
+
+    if (isSuccess) {
+      setNicknameForm('');
+      setIsNicknameFormOpen(false);
+    }
+  };
+
   if (currentUser) {
     const statusMessages = {
       deleted: '삭제 처리됨',
@@ -69,7 +89,38 @@ export function AuthPanel({ currentUser, isAuthLoading, onChangePin, onLogin, on
           <>
             <button
               className="ghost-button"
-              onClick={() => setIsPinFormOpen((isOpen) => !isOpen)}
+              onClick={() => {
+                setNicknameForm(currentUser.nickname ?? '');
+                setIsNicknameFormOpen((isOpen) => !isOpen);
+                setIsPinFormOpen(false);
+              }}
+              type="button"
+            >
+              닉네임 변경
+            </button>
+            {isNicknameFormOpen && (
+              <form className="auth-form" onSubmit={handleNicknameSubmit}>
+                <label>
+                  새 닉네임
+                  <input
+                    name="nickname"
+                    value={nicknameForm}
+                    onChange={(event) => setNicknameForm(event.target.value)}
+                    placeholder="새 닉네임"
+                    required
+                  />
+                </label>
+                <button className="primary-button" disabled={isAuthLoading} type="submit">
+                  {isAuthLoading ? '변경 중' : '닉네임 저장'}
+                </button>
+              </form>
+            )}
+            <button
+              className="ghost-button"
+              onClick={() => {
+                setIsPinFormOpen((isOpen) => !isOpen);
+                setIsNicknameFormOpen(false);
+              }}
               type="button"
             >
               PIN 변경
