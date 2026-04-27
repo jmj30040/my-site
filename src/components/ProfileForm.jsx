@@ -3,7 +3,7 @@ import { ROLES, TIERS } from '../constants';
 
 const emptyProfile = {
   battleTag: '',
-  tier: '골드',
+  tier: '언랭',
   role: '공격',
   mainHeroes: '',
   bio: '',
@@ -13,6 +13,7 @@ const emptyProfile = {
 };
 
 const tierClassNames = {
+  언랭: 'tier-unranked',
   브론즈: 'tier-bronze',
   실버: 'tier-silver',
   골드: 'tier-gold',
@@ -27,7 +28,7 @@ export function ProfileForm({ currentUser, initialProfile, isSubmitting = false,
   const normalizedProfile = initialProfile
     ? {
         battleTag: initialProfile.battleTag ?? '',
-        tier: initialProfile.tier ?? '골드',
+        tier: initialProfile.tier ?? '언랭',
         role: initialProfile.role ?? '공격',
         mainHeroes: Array.isArray(initialProfile.mainHeroes)
           ? initialProfile.mainHeroes.join(', ')

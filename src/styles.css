@@ -340,6 +340,12 @@ textarea {
   border: 1px solid transparent;
 }
 
+.tier-unranked {
+  background: #f3f5f8;
+  border-color: #c2cad6;
+  color: #596579;
+}
+
 .tier-bronze {
   background: #f4e7dc;
   border-color: #c98555;

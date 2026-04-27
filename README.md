@@ -84,7 +84,7 @@ my-site/
   ownerNickname: '민진',
   battleTag: 'Player#1234',
   profileImageUrl: 'data:image/jpeg;base64,...',
-  tier: '골드',
+  tier: '언랭',
   role: '공격',
   mainHeroes: ['트레이서', '아나'],
   bio: '즐겜도 빡겜도 좋아요',

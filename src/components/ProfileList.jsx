@@ -1,4 +1,5 @@
 const tierClassNames = {
+  언랭: 'tier-unranked',
   브론즈: 'tier-bronze',
   실버: 'tier-silver',
   골드: 'tier-gold',
