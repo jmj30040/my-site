@@ -184,14 +184,6 @@ textarea {
   box-shadow: 0 1px 4px rgb(23 32 51 / 10%);
 }
 
-.tab-panel {
-  display: none;
-}
-
-.tab-panel.active-panel {
-  display: grid;
-}
-
 .auth-form {
   display: grid;
   gap: 10px;
@@ -341,6 +333,16 @@ textarea {
 
 .admin-tab-panel {
   margin-top: 18px;
+}
+
+.workspace.tab-panel,
+.admin-tab-panel.tab-panel {
+  display: none;
+}
+
+.workspace.tab-panel.active-panel,
+.admin-tab-panel.tab-panel.active-panel {
+  display: grid;
 }
 
 .panel {
