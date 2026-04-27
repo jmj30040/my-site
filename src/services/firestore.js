@@ -18,7 +18,8 @@ import {
   serverTimestamp,
   updateDoc,
 } from 'firebase/firestore';
-import { auth, db } from '../firebase';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { auth, db, storage } from '../firebase';
 
 function requireFirebase() {
   if (!auth || !db) {
@@ -29,6 +30,12 @@ function requireFirebase() {
 function getCollection(collectionName) {
   requireFirebase();
   return collection(db, collectionName);
+}
+
+function requireStorage() {
+  if (!storage) {
+    throw new Error('Firebase Storage 환경변수가 설정되지 않았습니다.');
+  }
 }
 
 function normalizeNickname(nickname) {
@@ -65,6 +72,7 @@ function publicUserFromDoc(userDoc) {
   return {
     id: userDoc.id,
     nickname: data.nickname,
+    profileImageUrl: data.profileImageUrl ?? '',
   };
 }
 
@@ -130,6 +138,7 @@ export async function signUpWithNickname({ nickname, pin }) {
       transaction.set(doc(db, 'users', credential.user.uid), {
         nickname: normalizedNickname,
         nicknameKey,
+        profileImageUrl: '',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -142,6 +151,7 @@ export async function signUpWithNickname({ nickname, pin }) {
   return {
     id: credential.user.uid,
     nickname: normalizedNickname,
+    profileImageUrl: '',
   };
 }
 
@@ -200,9 +210,23 @@ export function subscribeProfiles(callback, onError) {
   );
 }
 
+export async function uploadProfileImage(userId, imageFile) {
+  requireStorage();
+
+  if (!imageFile?.type?.startsWith('image/')) {
+    throw new Error('이미지 파일만 업로드할 수 있습니다.');
+  }
+
+  const extension = imageFile.name.includes('.') ? imageFile.name.split('.').pop() : 'jpg';
+  const imageRef = ref(storage, `profile-images/${userId}/${Date.now()}.${extension}`);
+  const snapshot = await uploadBytes(imageRef, imageFile);
+  return getDownloadURL(snapshot.ref);
+}
+
 export function createProfile(profile, currentUser) {
   return addDoc(getCollection('profiles'), {
     ...profile,
+    profileImageUrl: profile.profileImageUrl ?? '',
     ownerId: currentUser.id,
     ownerNickname: currentUser.nickname,
     createdAt: serverTimestamp(),

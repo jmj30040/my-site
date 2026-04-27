@@ -11,9 +11,18 @@ export function ProfileList({ currentUser, profiles, onEdit, onDelete }) {
         return (
           <article className="profile-card" key={profile.id}>
             <div className="card-topline">
-              <div>
-                <h3>{profile.ownerNickname}</h3>
-                <p>{profile.battleTag || '배틀태그 미입력'}</p>
+              <div className="profile-summary">
+                {profile.profileImageUrl ? (
+                  <img className="profile-avatar" src={profile.profileImageUrl} alt={`${profile.ownerNickname} 프로필`} />
+                ) : (
+                  <span className="profile-avatar profile-avatar-placeholder">
+                    {profile.ownerNickname?.slice(0, 1) ?? '?'}
+                  </span>
+                )}
+                <div>
+                  <h3>{profile.ownerNickname}</h3>
+                  <p>{profile.battleTag || '배틀태그 미입력'}</p>
+                </div>
               </div>
               <div className="badges">
                 <span>{profile.tier}</span>

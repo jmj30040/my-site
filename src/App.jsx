@@ -21,6 +21,7 @@ import {
   subscribeSchedules,
   updateProfile,
   updateSchedule,
+  uploadProfileImage,
 } from './services/firestore';
 
 function App() {
@@ -32,6 +33,7 @@ function App() {
   const [roleFilter, setRoleFilter] = useState('전체');
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isProfileSaving, setIsProfileSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -153,28 +155,41 @@ function App() {
     setError('');
 
     if (!requireLogin()) {
-      return;
+      return false;
     }
 
-    try {
-      if (editingProfile) {
-        if (editingProfile.ownerId !== currentUser.id) {
-          setError('본인이 등록한 프로필만 수정할 수 있습니다.');
-          return;
-        }
+    if (editingProfile && editingProfile.ownerId !== currentUser.id) {
+      setError('본인이 등록한 프로필만 수정할 수 있습니다.');
+      return false;
+    }
 
-        await updateProfile(editingProfile.id, profile);
+    if (!editingProfile && myProfile) {
+      setError('프로필은 계정당 하나만 생성할 수 있습니다. 기존 프로필을 수정해주세요.');
+      return false;
+    }
+
+    setIsProfileSaving(true);
+
+    try {
+      const { profileImageFile, ...profileData } = profile;
+      const profileToSave = { ...profileData };
+
+      if (profileImageFile) {
+        profileToSave.profileImageUrl = await uploadProfileImage(currentUser.id, profileImageFile);
+      }
+
+      if (editingProfile) {
+        await updateProfile(editingProfile.id, profileToSave);
         setEditingProfile(null);
       } else {
-        if (myProfile) {
-          setError('프로필은 계정당 하나만 생성할 수 있습니다. 기존 프로필을 수정해주세요.');
-          return;
-        }
-
-        await createProfile(profile, currentUser);
+        await createProfile(profileToSave, currentUser);
       }
+      return true;
     } catch (caughtError) {
       setError(caughtError.message);
+      return false;
+    } finally {
+      setIsProfileSaving(false);
     }
   };
 
@@ -322,6 +337,7 @@ function App() {
               key={editingProfile?.id ?? currentUser.id}
               currentUser={currentUser}
               initialProfile={editingProfile}
+              isSubmitting={isProfileSaving}
               onSubmit={handleSubmitProfile}
             />
           ) : (

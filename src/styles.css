@@ -37,6 +37,11 @@ button:hover {
   filter: brightness(0.97);
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 input,
 select,
 textarea {
@@ -208,6 +213,46 @@ textarea {
   align-items: center;
   display: flex;
   gap: 10px;
+}
+
+.profile-summary,
+.profile-image-control {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.profile-avatar {
+  align-items: center;
+  aspect-ratio: 1;
+  background: #eef2f8;
+  border: 1px solid #d9e0eb;
+  border-radius: 50%;
+  color: #657086;
+  display: inline-flex;
+  flex: 0 0 44px;
+  font-size: 17px;
+  font-weight: 800;
+  height: 44px;
+  justify-content: center;
+  object-fit: cover;
+  overflow: hidden;
+  width: 44px;
+}
+
+.profile-avatar-large {
+  flex-basis: 72px;
+  font-size: 24px;
+  height: 72px;
+  width: 72px;
+}
+
+.profile-image-field {
+  align-self: end;
+}
+
+.profile-image-control input {
+  min-width: 0;
 }
 
 .section-heading,
