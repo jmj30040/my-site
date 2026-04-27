@@ -251,6 +251,22 @@ textarea {
   width: 72px;
 }
 
+.profile-avatar-button {
+  background: transparent;
+  border-radius: 50%;
+  display: inline-flex;
+  flex: 0 0 44px;
+  height: 44px;
+  min-height: 0;
+  padding: 0;
+  width: 44px;
+}
+
+.profile-avatar-button:focus-visible {
+  outline: 3px solid rgb(240 100 35 / 35%);
+  outline-offset: 3px;
+}
+
 .profile-image-field {
   align-self: end;
 }
@@ -480,6 +496,75 @@ textarea {
   grid-template-columns: 1fr auto;
 }
 
+.image-lightbox {
+  align-items: center;
+  display: grid;
+  inset: 0;
+  justify-items: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 100;
+}
+
+.lightbox-backdrop {
+  background: rgb(5 9 18 / 82%);
+  border-radius: 0;
+  inset: 0;
+  min-height: 0;
+  padding: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.lightbox-content {
+  animation: lightbox-zoom-in 180ms ease-out;
+  max-height: min(82vh, 760px);
+  max-width: min(82vw, 760px);
+  position: relative;
+  z-index: 1;
+}
+
+.lightbox-content img {
+  background: #fff;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 8px;
+  box-shadow: 0 22px 70px rgb(0 0 0 / 35%);
+  display: block;
+  max-height: min(82vh, 760px);
+  max-width: min(82vw, 760px);
+  object-fit: contain;
+}
+
+.lightbox-close-button {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #d6dce8;
+  border-radius: 999px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 22%);
+  color: #172033;
+  display: inline-flex;
+  height: 40px;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0;
+  position: absolute;
+  right: -12px;
+  top: -12px;
+  width: 40px;
+}
+
+@keyframes lightbox-zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .empty-state {
   background: #f7f9fc;
   border: 1px dashed #cbd3df;
@@ -564,5 +649,20 @@ textarea {
 
   .comment-form {
     grid-template-columns: 1fr;
+  }
+
+  .image-lightbox {
+    padding: 18px;
+  }
+
+  .lightbox-content,
+  .lightbox-content img {
+    max-height: 78vh;
+    max-width: calc(100vw - 36px);
+  }
+
+  .lightbox-close-button {
+    right: 8px;
+    top: 8px;
   }
 }
