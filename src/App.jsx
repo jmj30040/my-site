@@ -57,6 +57,8 @@ function App() {
   const [users, setUsers] = useState([]);
   const [editingProfile, setEditingProfile] = useState(null);
   const [editingSchedule, setEditingSchedule] = useState(null);
+  const [isProfileFormOpen, setIsProfileFormOpen] = useState(false);
+  const [isScheduleFormOpen, setIsScheduleFormOpen] = useState(false);
   const [tierFilter, setTierFilter] = useState('전체');
   const [roleFilter, setRoleFilter] = useState('전체');
   const [activeSection, setActiveSection] = useState('schedules');
@@ -212,6 +214,8 @@ function App() {
       setCurrentUser(null);
       setEditingProfile(null);
       setEditingSchedule(null);
+      setIsProfileFormOpen(false);
+      setIsScheduleFormOpen(false);
       setNotice('로그아웃되었습니다.');
     } catch (caughtError) {
       setError(caughtError.message);
@@ -258,6 +262,8 @@ function App() {
           } else {
             await createProfile(profileToSave, currentUser);
           }
+
+          setIsProfileFormOpen(false);
         })(),
         PROFILE_SAVE_TIMEOUT_MS,
         '프로필 저장 시간이 초과되었습니다. Firestore 권한과 네트워크 상태를 확인해주세요.',
@@ -328,9 +334,41 @@ function App() {
       } else {
         await createSchedule(schedule, currentUser);
       }
+
+      setIsScheduleFormOpen(false);
     } catch (caughtError) {
       setError(caughtError.message);
     }
+  };
+
+  const handleOpenProfileForm = () => {
+    setEditingProfile(myProfile);
+    setIsProfileFormOpen(true);
+  };
+
+  const handleEditProfile = (profile) => {
+    setEditingProfile(profile);
+    setIsProfileFormOpen(true);
+  };
+
+  const handleCloseProfileForm = () => {
+    setEditingProfile(null);
+    setIsProfileFormOpen(false);
+  };
+
+  const handleOpenScheduleForm = () => {
+    setEditingSchedule(null);
+    setIsScheduleFormOpen(true);
+  };
+
+  const handleEditSchedule = (schedule) => {
+    setEditingSchedule(schedule);
+    setIsScheduleFormOpen(true);
+  };
+
+  const handleCloseScheduleForm = () => {
+    setEditingSchedule(null);
+    setIsScheduleFormOpen(false);
   };
 
   const handleDeleteProfile = async (profile) => {
@@ -585,39 +623,18 @@ function App() {
         </section>
       )}
 
-      <section className={`workspace tab-panel ${activeSection === 'profiles' ? 'active-panel' : ''}`}>
-        <div className="panel">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Profiles</p>
-              <h2>친구 프로필</h2>
-            </div>
-            {editingProfile && (
-              <button className="ghost-button" onClick={() => setEditingProfile(null)}>
-                작성 취소
-              </button>
-            )}
-          </div>
-          {isApprovedUser ? (
-            <ProfileForm
-              key={editingProfile?.id ?? currentUser.id}
-              currentUser={currentUser}
-              initialProfile={editingProfile}
-              isSubmitting={isProfileSaving}
-              submittingLabel={profileSavingMessage}
-              onSubmit={handleSubmitProfile}
-            />
-          ) : (
-            <p className="empty-state">로그인 후 내 프로필을 만들 수 있습니다.</p>
-          )}
-        </div>
-
-        <div className="panel">
+      <section className={`workspace tab-panel ${isProfileFormOpen ? '' : 'workspace-list-only'} ${activeSection === 'profiles' ? 'active-panel' : ''}`}>
+        <div className="panel list-panel">
           <div className="section-heading">
             <div>
               <p className="eyebrow">Find Friends</p>
               <h2>프로필 목록</h2>
             </div>
+            {isApprovedUser && (
+              <button className="primary-button" onClick={handleOpenProfileForm} type="button">
+                {myProfile ? '내 프로필 수정' : '프로필 등록'}
+              </button>
+            )}
           </div>
           <div className="filters">
             <select value={tierFilter} onChange={(event) => setTierFilter(event.target.value)}>
@@ -641,41 +658,49 @@ function App() {
             currentUser={isApprovedUser ? currentUser : null}
             profiles={filteredProfiles}
             onDelete={handleDeleteProfile}
-            onEdit={setEditingProfile}
+            onEdit={handleEditProfile}
           />
         </div>
-      </section>
 
-      <section className={`workspace tab-panel ${activeSection === 'schedules' ? 'active-panel' : ''}`}>
-        <div className="panel">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Schedules</p>
-              <h2>게임 일정</h2>
-            </div>
-            {editingSchedule && (
-              <button className="ghost-button" onClick={() => setEditingSchedule(null)}>
-                작성 취소
+        {isProfileFormOpen && (
+          <div className="panel form-panel">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Profiles</p>
+                <h2>{editingProfile ? '프로필 수정' : '프로필 등록'}</h2>
+              </div>
+              <button className="ghost-button" onClick={handleCloseProfileForm} type="button">
+                닫기
               </button>
+            </div>
+            {isApprovedUser ? (
+              <ProfileForm
+                key={editingProfile?.id ?? currentUser.id}
+                currentUser={currentUser}
+                initialProfile={editingProfile}
+                isSubmitting={isProfileSaving}
+                submittingLabel={profileSavingMessage}
+                onSubmit={handleSubmitProfile}
+              />
+            ) : (
+              <p className="empty-state">로그인 후 내 프로필을 만들 수 있습니다.</p>
             )}
           </div>
-          {isApprovedUser ? (
-            <ScheduleForm
-              key={editingSchedule?.id ?? 'new-schedule'}
-              initialSchedule={editingSchedule}
-              onSubmit={handleSubmitSchedule}
-            />
-          ) : (
-            <p className="empty-state">로그인 후 게임 일정을 등록할 수 있습니다.</p>
-          )}
-        </div>
+        )}
+      </section>
 
-        <div className="panel">
+      <section className={`workspace tab-panel ${isScheduleFormOpen ? '' : 'workspace-list-only'} ${activeSection === 'schedules' ? 'active-panel' : ''}`}>
+        <div className="panel list-panel">
           <div className="section-heading">
             <div>
               <p className="eyebrow">Party Queue</p>
               <h2>일정 목록</h2>
             </div>
+            {isApprovedUser && (
+              <button className="primary-button" onClick={handleOpenScheduleForm} type="button">
+                일정 등록
+              </button>
+            )}
           </div>
           <ScheduleList
             commentsBySchedule={commentsBySchedule}
@@ -684,11 +709,34 @@ function App() {
             onAddComment={handleAddScheduleComment}
             onDeleteComment={handleDeleteScheduleComment}
             onDelete={handleDeleteSchedule}
-            onEdit={setEditingSchedule}
+            onEdit={handleEditSchedule}
             onJoin={handleJoinSchedule}
             onLeave={handleLeaveSchedule}
           />
         </div>
+
+        {isScheduleFormOpen && (
+          <div className="panel form-panel">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Schedules</p>
+                <h2>{editingSchedule ? '일정 수정' : '일정 등록'}</h2>
+              </div>
+              <button className="ghost-button" onClick={handleCloseScheduleForm} type="button">
+                닫기
+              </button>
+            </div>
+            {isApprovedUser ? (
+              <ScheduleForm
+                key={editingSchedule?.id ?? 'new-schedule'}
+                initialSchedule={editingSchedule}
+                onSubmit={handleSubmitSchedule}
+              />
+            ) : (
+              <p className="empty-state">로그인 후 게임 일정을 등록할 수 있습니다.</p>
+            )}
+          </div>
+        )}
       </section>
     </main>
   );

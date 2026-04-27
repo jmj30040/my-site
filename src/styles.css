@@ -317,8 +317,12 @@ textarea {
 .workspace {
   display: grid;
   gap: 18px;
-  grid-template-columns: minmax(320px, 0.9fr) minmax(320px, 1.1fr);
+  grid-template-columns: minmax(320px, 1.15fr) minmax(300px, 0.85fr);
   margin-top: 18px;
+}
+
+.workspace-list-only {
+  grid-template-columns: 1fr;
 }
 
 .admin-tab-panel {
