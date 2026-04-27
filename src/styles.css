@@ -128,6 +128,17 @@ textarea {
   margin: 0;
 }
 
+.admin-badge {
+  align-self: start;
+  background: #172033;
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 5px 9px;
+}
+
 .auth-tabs {
   background: #e9eef6;
   border-radius: 8px;

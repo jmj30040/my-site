@@ -95,11 +95,14 @@ function publicUserFromDoc(userDoc) {
   }
 
   const data = userDoc.data();
+  const normalizedRole = String(data.role ?? '').trim().toLowerCase();
+
   return {
     id: userDoc.id,
-    isAdmin: data.role === 'admin',
+    isAdmin: normalizedRole === 'admin',
     nickname: data.nickname,
     profileImageUrl: data.profileImageUrl ?? '',
+    role: normalizedRole,
     status: data.status ?? 'approved',
   };
 }

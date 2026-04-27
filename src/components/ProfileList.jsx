@@ -17,6 +17,10 @@ function getTierClassName(tier) {
   return tierClassNames[tier] ?? '';
 }
 
+function canManageProfile(currentUser, profile) {
+  return Boolean(currentUser?.isAdmin || currentUser?.id === profile.ownerId);
+}
+
 export function ProfileList({ currentUser, profiles, onEdit, onDelete }) {
   const [expandedImage, setExpandedImage] = useState(null);
 
@@ -28,7 +32,7 @@ export function ProfileList({ currentUser, profiles, onEdit, onDelete }) {
     <>
       <div className="card-list">
         {profiles.map((profile) => {
-          const canManage = currentUser?.isAdmin || currentUser?.id === profile.ownerId;
+          const canManage = canManageProfile(currentUser, profile);
           const imageAlt = `${profile.ownerNickname} 프로필 이미지`;
 
           return (

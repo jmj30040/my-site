@@ -31,6 +31,7 @@ export function AuthPanel({ currentUser, isAuthLoading, onLogin, onLogout, onSig
       <div className="auth-card">
         <p className="eyebrow">{isPending ? 'Pending' : 'Signed In'}</p>
         <h2>{currentUser.nickname}님 {isPending ? '승인 대기 중' : '로그인 중'}</h2>
+        {currentUser.isAdmin && <span className="admin-badge">관리자</span>}
         {isPending && <p className="auth-help">관리자가 가입을 승인하면 서비스를 이용할 수 있습니다.</p>}
         <button className="ghost-button" onClick={onLogout}>
           로그아웃
