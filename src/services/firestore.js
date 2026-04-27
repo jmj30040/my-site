@@ -100,6 +100,7 @@ function publicUserFromDoc(userDoc) {
     isAdmin: data.role === 'admin',
     nickname: data.nickname,
     profileImageUrl: data.profileImageUrl ?? '',
+    status: data.status ?? 'approved',
   };
 }
 
@@ -111,20 +112,28 @@ async function getUserByUid(uid) {
 
 export function subscribeAuthUser(callback) {
   requireFirebase();
+  let unsubscribeUserDoc = () => {};
 
-  return onAuthStateChanged(auth, async (firebaseUser) => {
+  const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+    unsubscribeUserDoc();
+    unsubscribeUserDoc = () => {};
+
     if (!firebaseUser) {
       callback(null);
       return;
     }
 
-    try {
-      const appUser = await getUserByUid(firebaseUser.uid);
-      callback(appUser);
-    } catch {
-      callback(null);
-    }
+    unsubscribeUserDoc = onSnapshot(
+      doc(db, 'users', firebaseUser.uid),
+      (userDoc) => callback(publicUserFromDoc(userDoc)),
+      () => callback(null),
+    );
   });
+
+  return () => {
+    unsubscribeUserDoc();
+    unsubscribeAuth();
+  };
 }
 
 export async function signUpWithNickname({ nickname, pin }) {
@@ -166,6 +175,7 @@ export async function signUpWithNickname({ nickname, pin }) {
         nickname: normalizedNickname,
         nicknameKey,
         profileImageUrl: '',
+        status: 'pending',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -180,6 +190,7 @@ export async function signUpWithNickname({ nickname, pin }) {
     isAdmin: false,
     nickname: normalizedNickname,
     profileImageUrl: '',
+    status: 'pending',
   };
 }
 
@@ -325,6 +336,35 @@ export function subscribeScheduleComments(callback, onError) {
     },
     onError,
   );
+}
+
+export function subscribeUsers(callback, onError) {
+  return onSnapshot(
+    getCollection('users'),
+    (snapshot) => {
+      const users = snapshot.docs
+        .map((userDoc) => ({
+          id: userDoc.id,
+          ...userDoc.data(),
+          status: userDoc.data().status ?? 'approved',
+        }))
+        .sort((firstUser, secondUser) => {
+          const firstCreatedAt = firstUser.createdAt?.toMillis?.() ?? 0;
+          const secondCreatedAt = secondUser.createdAt?.toMillis?.() ?? 0;
+          return secondCreatedAt - firstCreatedAt;
+        });
+      callback(users);
+    },
+    onError,
+  );
+}
+
+export function approveUser(userId) {
+  requireFirebase();
+  return updateDoc(doc(db, 'users', userId), {
+    status: 'approved',
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export function createSchedule(schedule, currentUser) {

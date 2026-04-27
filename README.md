@@ -61,6 +61,8 @@ my-site/
 {
   nickname: '민진',
   nicknameKey: 'hex-encoded-normalized-nickname',
+  status: 'pending',
+  role: 'admin', // 관리자 계정에만 수동 추가
   createdAt: serverTimestamp(),
   updatedAt: serverTimestamp()
 }
@@ -127,13 +129,15 @@ my-site/
 ## 권한 동작
 
 - 로그인하지 않아도 프로필 목록과 일정 목록은 볼 수 있습니다.
-- 로그인해야 프로필 생성/수정/삭제가 가능합니다.
-- 로그인해야 일정 생성/수정/삭제가 가능합니다.
-- 로그인해야 일정별 대화에 댓글을 남길 수 있습니다.
+- 회원가입 직후에는 `pending` 상태이며, 관리자가 승인해야 프로필/일정 기능을 사용할 수 있습니다.
+- 승인된 사용자만 프로필 생성/수정/삭제가 가능합니다.
+- 승인된 사용자만 일정 생성/수정/삭제가 가능합니다.
+- 승인된 사용자만 일정별 대화에 댓글을 남길 수 있습니다.
 - 본인이 만든 프로필과 일정만 수정/삭제 버튼이 보입니다.
 - 본인이 쓴 일정 댓글만 삭제할 수 있습니다.
+- 관리자는 모든 프로필/일정/일정 댓글을 관리할 수 있고, 가입 대기 사용자를 승인할 수 있습니다.
 - Firestore Rules에서도 `request.auth.uid`로 본인 수정/삭제를 막습니다.
-- 일정 참여/참여 취소는 로그인한 사용자만 가능합니다.
+- 일정 참여/참여 취소는 승인된 사용자만 가능합니다.
 
 ## Firebase 설정
 
@@ -171,11 +175,21 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
+    function isApproved() {
+      return request.auth != null
+        && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'approved'
+          || !get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(['status'])
+          || isAdmin()
+        );
+    }
+
     match /users/{userId} {
       allow read: if true;
       allow create: if request.auth != null
         && request.auth.uid == userId
-        && !request.resource.data.keys().hasAny(['role']);
+        && !request.resource.data.keys().hasAny(['role'])
+        && request.resource.data.status == 'pending';
       allow update: if request.auth != null
         && (
           (
@@ -195,7 +209,7 @@ service cloud.firestore {
 
     match /profiles/{profileId} {
       allow read: if true;
-      allow create: if request.auth != null
+      allow create: if isApproved()
         && request.resource.data.ownerId == request.auth.uid;
       allow update: if request.auth != null
         && request.resource.data.ownerId == resource.data.ownerId
@@ -212,9 +226,9 @@ service cloud.firestore {
 
     match /schedules/{scheduleId} {
       allow read: if true;
-      allow create: if request.auth != null
+      allow create: if isApproved()
         && request.resource.data.ownerId == request.auth.uid;
-      allow update: if request.auth != null
+      allow update: if isApproved()
         && (
           (
             (resource.data.ownerId == request.auth.uid || isAdmin())
@@ -236,7 +250,7 @@ service cloud.firestore {
 
     match /scheduleComments/{commentId} {
       allow read: if true;
-      allow create: if request.auth != null
+      allow create: if isApproved()
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.scheduleId is string
         && request.resource.data.message is string
@@ -280,12 +294,14 @@ http://localhost:5173
 
 1. Firebase Authentication에서 Email/Password 로그인을 활성화합니다.
 2. 회원가입 탭에서 닉네임과 숫자 6자리 PIN으로 가입합니다.
-3. 같은 닉네임으로 다시 가입하면 "이미 사용 중인 닉네임입니다"가 떠야 합니다.
-4. 로그아웃 후 같은 닉네임 + PIN으로 로그인합니다.
-5. 잘못된 PIN으로 로그인하면 실패해야 합니다.
-6. 로그인 상태에서 프로필과 일정을 생성합니다.
-7. 다른 계정으로 로그인하면 기존 프로필/일정의 수정/삭제 버튼이 보이지 않아야 합니다.
-8. 다른 계정으로 직접 Firestore 수정 요청을 해도 Rules에서 거부되어야 합니다.
+3. 가입 직후 "관리자 승인 대기" 상태가 표시되고 프로필/일정 작성 버튼이 보이지 않아야 합니다.
+4. Firebase Console에서 관리자 계정의 `users/{uid}` 문서에 `role: 'admin'`을 추가합니다.
+5. 관리자 계정으로 로그인해 가입 승인 패널에서 대기 사용자를 승인합니다.
+6. 승인된 사용자가 다시 로그인하거나 화면이 갱신되면 프로필과 일정을 생성할 수 있어야 합니다.
+7. 같은 닉네임으로 다시 가입하면 "이미 사용 중인 닉네임입니다"가 떠야 합니다.
+8. 잘못된 PIN으로 로그인하면 실패해야 합니다.
+9. 다른 일반 계정으로 로그인하면 기존 프로필/일정의 수정/삭제 버튼이 보이지 않아야 합니다.
+10. 다른 일반 계정으로 직접 Firestore 수정 요청을 해도 Rules에서 거부되어야 합니다.
 
 ## GitHub Pages 배포
 

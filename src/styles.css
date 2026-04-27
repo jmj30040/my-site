@@ -122,6 +122,12 @@ textarea {
   margin: 0;
 }
 
+.auth-help {
+  color: #657086;
+  font-size: 14px;
+  margin: 0;
+}
+
 .auth-tabs {
   background: #e9eef6;
   border-radius: 8px;
@@ -220,6 +226,42 @@ textarea {
   background: #eaf8ef;
   border: 1px solid #aee4bf;
   color: #176b36;
+}
+
+.admin-panel {
+  background: #fff;
+  border: 1px solid #e3e7ef;
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 18px;
+}
+
+.admin-panel h2 {
+  margin: 0;
+}
+
+.approval-list {
+  display: grid;
+  gap: 10px;
+}
+
+.approval-item {
+  align-items: center;
+  background: #f7f9fc;
+  border: 1px solid #e3e7ef;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr auto;
+  padding: 12px;
+}
+
+.approval-item p {
+  color: #657086;
+  font-size: 13px;
+  margin: 2px 0 0;
 }
 
 .workspace {
@@ -641,6 +683,7 @@ textarea {
   }
 
   .actions,
+  .approval-item,
   .comment-form,
   .filters,
   .section-heading {
@@ -649,6 +692,7 @@ textarea {
   }
 
   .actions button,
+  .approval-item button,
   .comment-form button,
   .filters select {
     width: 100%;

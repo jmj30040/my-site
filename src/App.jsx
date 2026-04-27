@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { AdminApprovalPanel } from './components/AdminApprovalPanel';
 import { AuthPanel } from './components/AuthPanel';
 import { ProfileForm } from './components/ProfileForm';
 import { ProfileList } from './components/ProfileList';
@@ -10,6 +11,7 @@ import {
   createProfile,
   createSchedule,
   createScheduleComment,
+  approveUser,
   deleteScheduleComment,
   deleteProfile,
   deleteSchedule,
@@ -22,6 +24,7 @@ import {
   subscribeProfiles,
   subscribeScheduleComments,
   subscribeSchedules,
+  subscribeUsers,
   updateProfile,
   updateSchedule,
   uploadProfileImage,
@@ -47,6 +50,7 @@ function App() {
   const [profiles, setProfiles] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [scheduleComments, setScheduleComments] = useState([]);
+  const [users, setUsers] = useState([]);
   const [editingProfile, setEditingProfile] = useState(null);
   const [editingSchedule, setEditingSchedule] = useState(null);
   const [tierFilter, setTierFilter] = useState('전체');
@@ -81,6 +85,7 @@ function App() {
     let unsubscribeProfiles = () => {};
     let unsubscribeSchedules = () => {};
     let unsubscribeScheduleComments = () => {};
+    let unsubscribeUsers = () => {};
 
     try {
       const handleSubscriptionError = (caughtError) => {
@@ -90,6 +95,7 @@ function App() {
       unsubscribeProfiles = subscribeProfiles(setProfiles, handleSubscriptionError);
       unsubscribeSchedules = subscribeSchedules(setSchedules, handleSubscriptionError);
       unsubscribeScheduleComments = subscribeScheduleComments(setScheduleComments, handleSubscriptionError);
+      unsubscribeUsers = subscribeUsers(setUsers, handleSubscriptionError);
     } catch (caughtError) {
       setError(caughtError.message);
     }
@@ -98,8 +104,11 @@ function App() {
       unsubscribeProfiles();
       unsubscribeSchedules();
       unsubscribeScheduleComments();
+      unsubscribeUsers();
     };
   }, []);
+
+  const isApprovedUser = Boolean(currentUser && (currentUser.status === 'approved' || currentUser.isAdmin));
 
   const myProfile = useMemo(() => {
     if (!currentUser) {
@@ -130,9 +139,18 @@ function App() {
     }, {});
   }, [scheduleComments]);
 
+  const pendingUsers = useMemo(() => {
+    return users.filter((user) => user.status === 'pending');
+  }, [users]);
+
   const requireLogin = () => {
-    if (currentUser) {
+    if (isApprovedUser) {
       return true;
+    }
+
+    if (currentUser?.status === 'pending') {
+      setError('관리자 승인 후 이용할 수 있습니다.');
+      return false;
     }
 
     setError('로그인 후 프로필 설정과 일정 등록이 가능합니다.');
@@ -147,7 +165,7 @@ function App() {
     try {
       const user = await signUpWithNickname(authForm);
       setCurrentUser(user);
-      setNotice(`${user.nickname}님, 회원가입과 로그인이 완료되었습니다.`);
+      setNotice(`${user.nickname}님, 가입 신청이 완료되었습니다. 관리자 승인 후 이용할 수 있습니다.`);
       return true;
     } catch (caughtError) {
       setError(caughtError.message);
@@ -165,7 +183,11 @@ function App() {
     try {
       const user = await loginWithNickname(authForm);
       setCurrentUser(user);
-      setNotice(`${user.nickname}님 로그인 중입니다.`);
+      setNotice(
+        user.status === 'pending'
+          ? `${user.nickname}님, 관리자 승인 대기 중입니다.`
+          : `${user.nickname}님 로그인 중입니다.`,
+      );
       return true;
     } catch (caughtError) {
       setError(caughtError.message);
@@ -365,6 +387,23 @@ function App() {
     }
   };
 
+  const handleApproveUser = async (user) => {
+    setError('');
+    setNotice('');
+
+    if (!currentUser?.isAdmin) {
+      setError('관리자만 가입을 승인할 수 있습니다.');
+      return;
+    }
+
+    try {
+      await approveUser(user.id);
+      setNotice(`${user.nickname || '사용자'}님의 가입을 승인했습니다.`);
+    } catch (caughtError) {
+      setError(caughtError.message);
+    }
+  };
+
   if (!isFirebaseConfigured) {
     return (
       <main className="app-shell">
@@ -402,8 +441,13 @@ function App() {
       </section>
 
       {!currentUser && <p className="notice-message">로그인 후 프로필 설정과 일정 등록이 가능합니다.</p>}
+      {currentUser?.status === 'pending' && (
+        <p className="notice-message">가입 신청이 접수되었습니다. 관리자 승인 후 프로필과 일정 기능을 사용할 수 있습니다.</p>
+      )}
       {notice && <p className="success-message">{notice}</p>}
       {error && <p className="error-message">{error}</p>}
+
+      {currentUser?.isAdmin && <AdminApprovalPanel pendingUsers={pendingUsers} onApprove={handleApproveUser} />}
 
       <div className="section-tabs" aria-label="콘텐츠 탭">
         <button
@@ -437,7 +481,7 @@ function App() {
               </button>
             )}
           </div>
-          {currentUser ? (
+          {isApprovedUser ? (
             <ProfileForm
               key={editingProfile?.id ?? currentUser.id}
               currentUser={currentUser}
@@ -477,7 +521,7 @@ function App() {
             </select>
           </div>
           <ProfileList
-            currentUser={currentUser}
+            currentUser={isApprovedUser ? currentUser : null}
             profiles={filteredProfiles}
             onDelete={handleDeleteProfile}
             onEdit={setEditingProfile}
@@ -498,7 +542,7 @@ function App() {
               </button>
             )}
           </div>
-          {currentUser ? (
+          {isApprovedUser ? (
             <ScheduleForm
               key={editingSchedule?.id ?? 'new-schedule'}
               initialSchedule={editingSchedule}
@@ -518,7 +562,7 @@ function App() {
           </div>
           <ScheduleList
             commentsBySchedule={commentsBySchedule}
-            currentUser={currentUser}
+            currentUser={isApprovedUser ? currentUser : null}
             schedules={schedules}
             onAddComment={handleAddScheduleComment}
             onDeleteComment={handleDeleteScheduleComment}
