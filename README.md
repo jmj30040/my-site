@@ -112,12 +112,26 @@ my-site/
 }
 ```
 
+`scheduleComments/{commentId}`:
+
+```js
+{
+  scheduleId: 'schedule document id',
+  ownerId: 'Firebase Auth uid',
+  ownerNickname: '민진',
+  message: '마이크 가능?',
+  createdAt: serverTimestamp()
+}
+```
+
 ## 권한 동작
 
 - 로그인하지 않아도 프로필 목록과 일정 목록은 볼 수 있습니다.
 - 로그인해야 프로필 생성/수정/삭제가 가능합니다.
 - 로그인해야 일정 생성/수정/삭제가 가능합니다.
+- 로그인해야 일정별 대화에 댓글을 남길 수 있습니다.
 - 본인이 만든 프로필과 일정만 수정/삭제 버튼이 보입니다.
+- 본인이 쓴 일정 댓글만 삭제할 수 있습니다.
 - Firestore Rules에서도 `request.auth.uid`로 본인 수정/삭제를 막습니다.
 - 일정 참여/참여 취소는 로그인한 사용자만 가능합니다.
 
@@ -195,6 +209,19 @@ service cloud.firestore {
         );
       allow delete: if request.auth != null
         && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /scheduleComments/{commentId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.scheduleId is string
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0
+        && request.resource.data.message.size() <= 160;
+      allow delete: if request.auth != null
+        && resource.data.ownerId == request.auth.uid;
+      allow update: if false;
     }
   }
 }

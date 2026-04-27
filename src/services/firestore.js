@@ -309,6 +309,22 @@ export function subscribeSchedules(callback, onError) {
   );
 }
 
+export function subscribeScheduleComments(callback, onError) {
+  const commentsQuery = query(getCollection('scheduleComments'), orderBy('createdAt', 'asc'));
+
+  return onSnapshot(
+    commentsQuery,
+    (snapshot) => {
+      const comments = snapshot.docs.map((commentDoc) => ({
+        id: commentDoc.id,
+        ...commentDoc.data(),
+      }));
+      callback(comments);
+    },
+    onError,
+  );
+}
+
 export function createSchedule(schedule, currentUser) {
   const participants = schedule.participants?.length ? schedule.participants : [currentUser.nickname];
   const participantIds = schedule.participantIds?.length ? schedule.participantIds : [currentUser.id];
@@ -356,4 +372,30 @@ export function leaveSchedule(schedule, currentUser) {
     participants: (schedule.participants ?? []).filter((participant) => participant !== currentUser.nickname),
     participantIds: (schedule.participantIds ?? []).filter((participantId) => participantId !== currentUser.id),
   });
+}
+
+export function createScheduleComment(scheduleId, message, currentUser) {
+  requireFirebase();
+  const normalizedMessage = message.trim().replace(/\s+/g, ' ');
+
+  if (!normalizedMessage) {
+    throw new Error('댓글 내용을 입력해주세요.');
+  }
+
+  if (normalizedMessage.length > 160) {
+    throw new Error('댓글은 160자 이하로 입력해주세요.');
+  }
+
+  return addDoc(getCollection('scheduleComments'), {
+    scheduleId,
+    message: normalizedMessage,
+    ownerId: currentUser.id,
+    ownerNickname: currentUser.nickname,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export function deleteScheduleComment(commentId) {
+  requireFirebase();
+  return deleteDoc(doc(db, 'scheduleComments', commentId));
 }

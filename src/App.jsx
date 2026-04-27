@@ -9,6 +9,8 @@ import { isFirebaseConfigured, missingFirebaseConfigKeys } from './firebase';
 import {
   createProfile,
   createSchedule,
+  createScheduleComment,
+  deleteScheduleComment,
   deleteProfile,
   deleteSchedule,
   joinSchedule,
@@ -18,6 +20,7 @@ import {
   signUpWithNickname,
   subscribeAuthUser,
   subscribeProfiles,
+  subscribeScheduleComments,
   subscribeSchedules,
   updateProfile,
   updateSchedule,
@@ -43,6 +46,7 @@ function withTimeout(promise, timeoutMs, timeoutMessage) {
 function App() {
   const [profiles, setProfiles] = useState([]);
   const [schedules, setSchedules] = useState([]);
+  const [scheduleComments, setScheduleComments] = useState([]);
   const [editingProfile, setEditingProfile] = useState(null);
   const [editingSchedule, setEditingSchedule] = useState(null);
   const [tierFilter, setTierFilter] = useState('전체');
@@ -76,6 +80,7 @@ function App() {
 
     let unsubscribeProfiles = () => {};
     let unsubscribeSchedules = () => {};
+    let unsubscribeScheduleComments = () => {};
 
     try {
       const handleSubscriptionError = (caughtError) => {
@@ -84,6 +89,7 @@ function App() {
 
       unsubscribeProfiles = subscribeProfiles(setProfiles, handleSubscriptionError);
       unsubscribeSchedules = subscribeSchedules(setSchedules, handleSubscriptionError);
+      unsubscribeScheduleComments = subscribeScheduleComments(setScheduleComments, handleSubscriptionError);
     } catch (caughtError) {
       setError(caughtError.message);
     }
@@ -91,6 +97,7 @@ function App() {
     return () => {
       unsubscribeProfiles();
       unsubscribeSchedules();
+      unsubscribeScheduleComments();
     };
   }, []);
 
@@ -109,6 +116,19 @@ function App() {
       return matchesTier && matchesRole;
     });
   }, [profiles, roleFilter, tierFilter]);
+
+  const commentsBySchedule = useMemo(() => {
+    return scheduleComments.reduce((groupedComments, comment) => {
+      if (!comment.scheduleId) {
+        return groupedComments;
+      }
+
+      return {
+        ...groupedComments,
+        [comment.scheduleId]: [...(groupedComments[comment.scheduleId] ?? []), comment],
+      };
+    }, {});
+  }, [scheduleComments]);
 
   const requireLogin = () => {
     if (currentUser) {
@@ -310,6 +330,41 @@ function App() {
     }
   };
 
+  const handleAddScheduleComment = async (schedule, message) => {
+    setError('');
+
+    if (!requireLogin()) {
+      return false;
+    }
+
+    try {
+      await createScheduleComment(schedule.id, message, currentUser);
+      return true;
+    } catch (caughtError) {
+      setError(caughtError.message);
+      return false;
+    }
+  };
+
+  const handleDeleteScheduleComment = async (comment) => {
+    setError('');
+
+    if (!requireLogin()) {
+      return;
+    }
+
+    if (comment.ownerId !== currentUser.id) {
+      setError('본인이 작성한 댓글만 삭제할 수 있습니다.');
+      return;
+    }
+
+    try {
+      await deleteScheduleComment(comment.id);
+    } catch (caughtError) {
+      setError(caughtError.message);
+    }
+  };
+
   if (!isFirebaseConfigured) {
     return (
       <main className="app-shell">
@@ -460,8 +515,11 @@ function App() {
             </div>
           </div>
           <ScheduleList
+            commentsBySchedule={commentsBySchedule}
             currentUser={currentUser}
             schedules={schedules}
+            onAddComment={handleAddScheduleComment}
+            onDeleteComment={handleDeleteScheduleComment}
             onDelete={handleDeleteSchedule}
             onEdit={setEditingSchedule}
             onJoin={handleJoinSchedule}
