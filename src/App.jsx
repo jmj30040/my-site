@@ -11,6 +11,7 @@ import {
   createProfile,
   createSchedule,
   createScheduleComment,
+  changeCurrentUserPin,
   approveUser,
   deleteScheduleComment,
   deleteProfile,
@@ -273,6 +274,24 @@ function App() {
     }
   };
 
+  const handleChangePin = async (pinForm) => {
+    setError('');
+    setNotice('');
+    setTemporaryPinNotice(null);
+    setIsAuthLoading(true);
+
+    try {
+      await changeCurrentUserPin(currentUser, pinForm);
+      setNotice('PIN이 변경되었습니다. 다음 로그인부터 새 PIN을 사용해주세요.');
+      return true;
+    } catch (caughtError) {
+      setError(caughtError.message);
+      return false;
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
   const handleSubmitSchedule = async (schedule) => {
     setError('');
 
@@ -529,6 +548,7 @@ function App() {
         <AuthPanel
           currentUser={currentUser}
           isAuthLoading={isAuthLoading}
+          onChangePin={handleChangePin}
           onLogin={handleLogin}
           onLogout={handleLogout}
           onSignUp={handleSignUp}

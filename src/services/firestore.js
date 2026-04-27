@@ -7,6 +7,7 @@ import {
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -309,6 +310,52 @@ export function logout() {
   requireFirebase();
   localStorage.removeItem(SESSION_STORAGE_KEY);
   return signOut(auth).catch(() => {});
+}
+
+export async function changeCurrentUserPin(currentUser, { currentPin, newPin }) {
+  requireFirebase();
+
+  if (!currentUser?.id || !currentUser?.nickname) {
+    throw new Error('로그인 정보가 없습니다.');
+  }
+
+  if (!validatePin(currentPin) || !validatePin(newPin)) {
+    throw new Error('PIN은 숫자 6자리만 가능합니다.');
+  }
+
+  if (currentPin === newPin) {
+    throw new Error('새 PIN은 현재 PIN과 다르게 입력해주세요.');
+  }
+
+  const userRef = doc(db, 'users', currentUser.id);
+  const userDoc = await getDoc(userRef);
+  const userData = userDoc.data();
+
+  if (!userDoc.exists()) {
+    throw new Error('사용자 정보가 없습니다.');
+  }
+
+  if (userData?.pinHash && userData?.pinSalt) {
+    const enteredPinHash = await hashPin(currentPin, userData.pinSalt);
+
+    if (enteredPinHash !== userData.pinHash) {
+      throw new Error('현재 PIN이 일치하지 않습니다.');
+    }
+  } else {
+    await signInWithEmailAndPassword(auth, await getAuthEmail(currentUser.nickname), currentPin).catch(() => {
+      throw new Error('현재 PIN이 일치하지 않습니다.');
+    });
+  }
+
+  const pinSalt = createSalt();
+  const pinHash = await hashPin(newPin, pinSalt);
+
+  await updateDoc(userRef, {
+    pinHash,
+    pinSalt,
+    temporaryPinIssuedAt: deleteField(),
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export function subscribeProfiles(callback, onError) {

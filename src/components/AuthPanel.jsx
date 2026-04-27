@@ -5,9 +5,16 @@ const emptyAuthForm = {
   pin: '',
 };
 
-export function AuthPanel({ currentUser, isAuthLoading, onLogin, onLogout, onSignUp }) {
+const emptyPinForm = {
+  currentPin: '',
+  newPin: '',
+};
+
+export function AuthPanel({ currentUser, isAuthLoading, onChangePin, onLogin, onLogout, onSignUp }) {
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState(emptyAuthForm);
+  const [isPinFormOpen, setIsPinFormOpen] = useState(false);
+  const [pinForm, setPinForm] = useState(emptyPinForm);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -21,6 +28,24 @@ export function AuthPanel({ currentUser, isAuthLoading, onLogin, onLogout, onSig
 
     if (isSuccess) {
       setForm(emptyAuthForm);
+    }
+  };
+
+  const handlePinFormChange = (event) => {
+    const { name, value } = event.target;
+    setPinForm((currentForm) => ({
+      ...currentForm,
+      [name]: value.replace(/\D/g, '').slice(0, 6),
+    }));
+  };
+
+  const handlePinSubmit = async (event) => {
+    event.preventDefault();
+    const isSuccess = await onChangePin(pinForm);
+
+    if (isSuccess) {
+      setPinForm(emptyPinForm);
+      setIsPinFormOpen(false);
     }
   };
 
@@ -40,7 +65,51 @@ export function AuthPanel({ currentUser, isAuthLoading, onLogin, onLogout, onSig
         {currentUser.isAdmin && <span className="admin-badge">관리자</span>}
         {currentUser.temporaryPinIssuedAt && <p className="auth-help">관리자가 발급한 임시 PIN으로 로그인할 수 있는 계정입니다.</p>}
         {needsApproval && <p className="auth-help">관리자가 승인한 계정만 서비스를 이용할 수 있습니다.</p>}
-        <button className="ghost-button" onClick={onLogout}>
+        {!needsApproval && (
+          <>
+            <button
+              className="ghost-button"
+              onClick={() => setIsPinFormOpen((isOpen) => !isOpen)}
+              type="button"
+            >
+              PIN 변경
+            </button>
+            {isPinFormOpen && (
+              <form className="auth-form pin-change-form" onSubmit={handlePinSubmit}>
+                <label>
+                  현재 PIN
+                  <input
+                    inputMode="numeric"
+                    name="currentPin"
+                    pattern="\d{6}"
+                    value={pinForm.currentPin}
+                    onChange={handlePinFormChange}
+                    placeholder="현재 PIN"
+                    required
+                    type="password"
+                  />
+                </label>
+                <label>
+                  새 PIN
+                  <input
+                    inputMode="numeric"
+                    name="newPin"
+                    pattern="\d{6}"
+                    value={pinForm.newPin}
+                    onChange={handlePinFormChange}
+                    placeholder="새 6자리 PIN"
+                    required
+                    type="password"
+                  />
+                </label>
+                <button className="primary-button" disabled={isAuthLoading} type="submit">
+                  {isAuthLoading ? '변경 중' : 'PIN 저장'}
+                </button>
+              </form>
+            )}
+          </>
+        )}
+        <button className="ghost-button" onClick={onLogout} type="button">
           로그아웃
         </button>
       </div>
