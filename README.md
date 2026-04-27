@@ -7,7 +7,6 @@
 - Frontend: React, Vite, CSS
 - Auth: Firebase Authentication Email/Password
 - Database: Firebase Cloud Firestore
-- Storage: Firebase Storage
 - Deploy: GitHub Pages, GitHub Actions
 
 ## 로그인 방식
@@ -84,6 +83,7 @@ my-site/
   ownerId: 'Firebase Auth uid',
   ownerNickname: '민진',
   battleTag: 'Player#1234',
+  profileImageUrl: 'data:image/jpeg;base64,...',
   tier: '골드',
   role: '공격',
   mainHeroes: ['트레이서', '아나'],
@@ -126,9 +126,8 @@ my-site/
 1. Firebase Console에서 프로젝트를 만듭니다.
 2. Firestore Database를 생성합니다.
 3. `Authentication` > `Sign-in method`에서 `Email/Password`를 활성화합니다.
-4. `Storage`를 생성합니다. 프로필 이미지 업로드에 필요합니다.
-5. 웹 앱을 추가한 뒤 Firebase 설정 값을 복사합니다.
-6. `.env.example`을 `.env`로 복사하고 값을 채웁니다.
+4. 웹 앱을 추가한 뒤 Firebase 설정 값을 복사합니다.
+5. `.env.example`을 `.env`로 복사하고 값을 채웁니다.
 
 ```powershell
 Copy-Item .env.example .env
@@ -140,7 +139,6 @@ Copy-Item .env.example .env
 VITE_FIREBASE_API_KEY=your-api-key
 VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
 VITE_FIREBASE_PROJECT_ID=your-project-id
-VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
 VITE_FIREBASE_APP_ID=1:123456789:web:abcdef123456
 ```
@@ -204,27 +202,11 @@ service cloud.firestore {
 
 참고: 일정 참여/참여 취소는 작성자가 아닌 사용자도 `participants`, `participantIds`만 바꿀 수 있게 허용합니다.
 
-## Storage Rules
+## 프로필 이미지
 
-Firebase Console > Storage > Rules에 아래 규칙을 게시하세요.
+Firebase Storage 없이 사용할 수 있도록 프로필 이미지는 브라우저에서 320px 이하 JPEG로 압축한 뒤 Firestore `profiles` 문서의 `profileImageUrl` 필드에 저장합니다.
 
-```js
-rules_version = '2';
-
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /profile-images/{userId}/{fileName} {
-      allow read: if true;
-      allow write: if request.auth != null
-        && request.auth.uid == userId
-        && request.resource.size < 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
-    }
-  }
-}
-```
-
-이미지를 저장할 때 "저장 중"에서 오래 멈추면 Storage가 생성되어 있는지, `VITE_FIREBASE_STORAGE_BUCKET` 값이 Firebase 웹 앱 설정의 `storageBucket`과 같은지, 위 Storage Rules가 게시되어 있는지 확인하세요.
+Firestore 문서 크기 제한을 넘지 않도록 원본 이미지는 5MB 이하만 선택할 수 있고, 압축 후에도 너무 큰 이미지는 저장되지 않습니다.
 
 ## 실행 방법
 
@@ -265,7 +247,6 @@ GitHub 저장소에서 아래 설정을 해주세요.
 VITE_FIREBASE_API_KEY
 VITE_FIREBASE_AUTH_DOMAIN
 VITE_FIREBASE_PROJECT_ID
-VITE_FIREBASE_STORAGE_BUCKET
 VITE_FIREBASE_MESSAGING_SENDER_ID
 VITE_FIREBASE_APP_ID
 ```

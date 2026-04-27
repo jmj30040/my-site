@@ -18,11 +18,12 @@ import {
   serverTimestamp,
   updateDoc,
 } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { auth, db, storage } from '../firebase';
+import { auth, db } from '../firebase';
 
 const PROFILE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
-const PROFILE_IMAGE_UPLOAD_TIMEOUT_MS = 30000;
+const PROFILE_IMAGE_MAX_DIMENSION = 320;
+const PROFILE_IMAGE_MAX_DATA_URL_LENGTH = 300000;
+const PROFILE_IMAGE_QUALITY_STEPS = [0.82, 0.72, 0.62, 0.52, 0.42];
 
 function requireFirebase() {
   if (!auth || !db) {
@@ -35,48 +36,36 @@ function getCollection(collectionName) {
   return collection(db, collectionName);
 }
 
-function requireStorage() {
-  if (!storage) {
-    throw new Error('Firebase Storage 환경변수가 설정되지 않았습니다.');
-  }
-}
-
-function withTimeout(promise, timeoutMs, timeoutMessage) {
-  let timeoutId;
-
-  const timeoutPromise = new Promise((_, reject) => {
-    timeoutId = window.setTimeout(() => {
-      reject(new Error(timeoutMessage));
-    }, timeoutMs);
-  });
-
-  return Promise.race([promise, timeoutPromise]).finally(() => {
-    window.clearTimeout(timeoutId);
-  });
-}
-
-function getStorageErrorMessage(caughtError) {
-  if (caughtError.message === '이미지 업로드 시간이 초과되었습니다. 네트워크 상태와 Firebase Storage 설정을 확인해주세요.') {
-    return caughtError.message;
-  }
-
-  if (caughtError.code === 'storage/unauthorized') {
-    return '이미지 업로드 권한이 없습니다. Firebase Storage Rules에서 로그인한 사용자의 업로드를 허용해주세요.';
-  }
-
-  if (caughtError.code === 'storage/quota-exceeded') {
-    return 'Firebase Storage 용량 또는 사용량 한도를 초과했습니다.';
-  }
-
-  if (caughtError.code === 'storage/retry-limit-exceeded' || caughtError.code === 'storage/canceled') {
-    return '이미지 업로드가 완료되지 않았습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요.';
-  }
-
-  return caughtError.message;
-}
-
 function normalizeNickname(nickname) {
   return nickname.trim().replace(/\s+/g, ' ');
+}
+
+function loadImageFromFile(imageFile) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(imageFile);
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('이미지를 읽을 수 없습니다. 다른 이미지 파일을 선택해주세요.'));
+    };
+
+    image.src = objectUrl;
+  });
+}
+
+function getResizedImageSize(width, height) {
+  const ratio = Math.min(PROFILE_IMAGE_MAX_DIMENSION / width, PROFILE_IMAGE_MAX_DIMENSION / height, 1);
+
+  return {
+    width: Math.max(1, Math.round(width * ratio)),
+    height: Math.max(1, Math.round(height * ratio)),
+  };
 }
 
 function validatePin(pin) {
@@ -247,9 +236,7 @@ export function subscribeProfiles(callback, onError) {
   );
 }
 
-export async function uploadProfileImage(userId, imageFile) {
-  requireStorage();
-
+export async function uploadProfileImage(imageFile) {
   if (!imageFile?.type?.startsWith('image/')) {
     throw new Error('이미지 파일만 업로드할 수 있습니다.');
   }
@@ -258,23 +245,24 @@ export async function uploadProfileImage(userId, imageFile) {
     throw new Error('프로필 이미지는 5MB 이하만 업로드할 수 있습니다.');
   }
 
-  const extension = imageFile.name.includes('.') ? imageFile.name.split('.').pop() : 'jpg';
-  const imageRef = ref(storage, `profile-images/${userId}/${Date.now()}.${extension}`);
+  const image = await loadImageFromFile(imageFile);
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  const size = getResizedImageSize(image.naturalWidth, image.naturalHeight);
 
-  try {
-    const snapshot = await withTimeout(
-      uploadBytes(imageRef, imageFile),
-      PROFILE_IMAGE_UPLOAD_TIMEOUT_MS,
-      '이미지 업로드 시간이 초과되었습니다. 네트워크 상태와 Firebase Storage 설정을 확인해주세요.',
-    );
-    return await withTimeout(
-      getDownloadURL(snapshot.ref),
-      PROFILE_IMAGE_UPLOAD_TIMEOUT_MS,
-      '이미지 주소를 가져오는 시간이 초과되었습니다. Firebase Storage 설정을 확인해주세요.',
-    );
-  } catch (caughtError) {
-    throw new Error(getStorageErrorMessage(caughtError));
+  canvas.width = size.width;
+  canvas.height = size.height;
+  context.drawImage(image, 0, 0, size.width, size.height);
+
+  for (const quality of PROFILE_IMAGE_QUALITY_STEPS) {
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+
+    if (dataUrl.length <= PROFILE_IMAGE_MAX_DATA_URL_LENGTH) {
+      return dataUrl;
+    }
   }
+
+  throw new Error('이미지를 충분히 작게 압축하지 못했습니다. 더 작은 이미지로 다시 시도해주세요.');
 }
 
 export function createProfile(profile, currentUser) {

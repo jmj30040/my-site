@@ -24,6 +24,22 @@ import {
   uploadProfileImage,
 } from './services/firestore';
 
+const PROFILE_SAVE_TIMEOUT_MS = 45000;
+
+function withTimeout(promise, timeoutMs, timeoutMessage) {
+  let timeoutId;
+
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    window.clearTimeout(timeoutId);
+  });
+}
+
 function App() {
   const [profiles, setProfiles] = useState([]);
   const [schedules, setSchedules] = useState([]);
@@ -34,6 +50,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isProfileSaving, setIsProfileSaving] = useState(false);
+  const [profileSavingMessage, setProfileSavingMessage] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -153,6 +170,7 @@ function App() {
 
   const handleSubmitProfile = async (profile) => {
     setError('');
+    setNotice('');
 
     if (!requireLogin()) {
       return false;
@@ -169,27 +187,39 @@ function App() {
     }
 
     setIsProfileSaving(true);
+    setProfileSavingMessage('프로필 저장 준비 중...');
 
     try {
-      const { profileImageFile, ...profileData } = profile;
-      const profileToSave = { ...profileData };
+      await withTimeout(
+        (async () => {
+          const { profileImageFile, ...profileData } = profile;
+          const profileToSave = { ...profileData };
 
-      if (profileImageFile) {
-        profileToSave.profileImageUrl = await uploadProfileImage(currentUser.id, profileImageFile);
-      }
+          if (profileImageFile) {
+            setProfileSavingMessage('이미지 압축 중...');
+            profileToSave.profileImageUrl = await uploadProfileImage(profileImageFile);
+          }
 
-      if (editingProfile) {
-        await updateProfile(editingProfile.id, profileToSave);
-        setEditingProfile(null);
-      } else {
-        await createProfile(profileToSave, currentUser);
-      }
+          setProfileSavingMessage('프로필 저장 중...');
+
+          if (editingProfile) {
+            await updateProfile(editingProfile.id, profileToSave);
+            setEditingProfile(null);
+          } else {
+            await createProfile(profileToSave, currentUser);
+          }
+        })(),
+        PROFILE_SAVE_TIMEOUT_MS,
+        '프로필 저장 시간이 초과되었습니다. Firestore 권한과 네트워크 상태를 확인해주세요.',
+      );
+      setNotice('프로필이 저장되었습니다.');
       return true;
     } catch (caughtError) {
       setError(caughtError.message);
       return false;
     } finally {
       setIsProfileSaving(false);
+      setProfileSavingMessage('');
     }
   };
 
@@ -338,6 +368,7 @@ function App() {
               currentUser={currentUser}
               initialProfile={editingProfile}
               isSubmitting={isProfileSaving}
+              submittingLabel={profileSavingMessage}
               onSubmit={handleSubmitProfile}
             />
           ) : (

@@ -12,7 +12,7 @@ const emptyProfile = {
   profileImageFile: null,
 };
 
-export function ProfileForm({ currentUser, initialProfile, isSubmitting = false, onSubmit }) {
+export function ProfileForm({ currentUser, initialProfile, isSubmitting = false, submittingLabel = '', onSubmit }) {
   const normalizedProfile = initialProfile
     ? {
         battleTag: initialProfile.battleTag ?? '',
@@ -152,7 +152,7 @@ export function ProfileForm({ currentUser, initialProfile, isSubmitting = false,
         />
       </label>
       <button className="primary-button wide" type="submit" disabled={isSubmitting}>
-        {isSubmitting ? '저장 중...' : initialProfile ? '프로필 수정' : '프로필 생성'}
+        {isSubmitting ? submittingLabel || '저장 중...' : initialProfile ? '프로필 수정' : '프로필 생성'}
       </button>
     </form>
   );
