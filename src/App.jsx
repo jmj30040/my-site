@@ -33,6 +33,7 @@ import {
   updateSchedule,
   uploadProfileImage,
 } from './services/firestore';
+import { isScheduleClosed } from './utils/scheduleStatus';
 
 const PROFILE_SAVE_TIMEOUT_MS = 45000;
 
@@ -328,6 +329,11 @@ function App() {
 
     try {
       if (editingSchedule) {
+        if (isScheduleClosed(editingSchedule)) {
+          setError('마감된 일정은 수정할 수 없습니다.');
+          return;
+        }
+
         if (editingSchedule.ownerId !== currentUser.id && !currentUser.isAdmin) {
           setError('본인이 등록한 일정만 수정할 수 있습니다.');
           return;
@@ -366,6 +372,11 @@ function App() {
   };
 
   const handleEditSchedule = (schedule) => {
+    if (isScheduleClosed(schedule)) {
+      setError('마감된 일정은 수정할 수 없습니다.');
+      return;
+    }
+
     setEditingSchedule(schedule);
     setIsScheduleFormOpen(true);
   };
@@ -404,6 +415,11 @@ function App() {
       return;
     }
 
+    if (isScheduleClosed(schedule)) {
+      setError('마감된 일정은 삭제할 수 없습니다.');
+      return;
+    }
+
     if (window.confirm('이 일정을 삭제할까요?')) {
       await deleteSchedule(schedule.id);
     }
@@ -413,6 +429,11 @@ function App() {
     setError('');
 
     if (!requireLogin()) {
+      return;
+    }
+
+    if (isScheduleClosed(schedule)) {
+      setError('마감된 일정은 참여할 수 없습니다.');
       return;
     }
 
@@ -427,6 +448,11 @@ function App() {
     setError('');
 
     if (!requireLogin()) {
+      return;
+    }
+
+    if (isScheduleClosed(schedule)) {
+      setError('마감된 일정은 참여 취소할 수 없습니다.');
       return;
     }
 

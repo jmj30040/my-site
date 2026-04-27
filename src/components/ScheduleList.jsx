@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { isScheduleClosed } from '../utils/scheduleStatus';
 
 function formatCommentTime(createdAt) {
   if (!createdAt?.toDate) {
@@ -29,6 +30,17 @@ export function ScheduleList({
   onLeave,
 }) {
   const [commentDrafts, setCommentDrafts] = useState({});
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timerId = window.setInterval(() => {
+      setNow(new Date());
+    }, 60000);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, []);
 
   const handleCommentChange = (scheduleId, value) => {
     setCommentDrafts((currentDrafts) => ({
@@ -57,13 +69,14 @@ export function ScheduleList({
         const participants = schedule.participants ?? [];
         const participantIds = schedule.participantIds ?? [];
         const canManage = canManageItem(currentUser, schedule);
+        const isClosed = isScheduleClosed(schedule, now);
         const isJoined = Boolean(
           currentUser && (participantIds.includes(currentUser.id) || participants.includes(currentUser.nickname)),
         );
         const comments = commentsBySchedule[schedule.id] ?? [];
 
         return (
-          <article className="schedule-card" key={schedule.id}>
+          <article className={`schedule-card ${isClosed ? 'closed-schedule' : ''}`} key={schedule.id}>
             <div className="card-topline">
               <div>
                 <h3>{schedule.title}</h3>
@@ -72,7 +85,10 @@ export function ScheduleList({
                   {schedule.endTime ? ` - ${schedule.endTime}` : ''}
                 </p>
               </div>
-              <span className="count-badge">{participants.length}명</span>
+              <div className="schedule-badges">
+                {isClosed && <span className="closed-badge">마감</span>}
+                <span className="count-badge">{participants.length}명</span>
+              </div>
             </div>
             <p className="bio">{schedule.memo || '메모가 없습니다.'}</p>
             <p className="meta">작성자: {schedule.ownerNickname || '알 수 없음'}</p>
@@ -80,16 +96,20 @@ export function ScheduleList({
             <div className="actions">
               {currentUser &&
                 (isJoined ? (
-                  <button onClick={() => onLeave(schedule)}>참여 취소</button>
+                  <button disabled={isClosed} onClick={() => onLeave(schedule)}>
+                    참여 취소
+                  </button>
                 ) : (
-                  <button className="primary-button" onClick={() => onJoin(schedule)}>
+                  <button className="primary-button" disabled={isClosed} onClick={() => onJoin(schedule)}>
                     참여하기
                   </button>
                 ))}
               {canManage && (
                 <>
-                  <button onClick={() => onEdit(schedule)}>수정</button>
-                  <button className="danger-button" onClick={() => onDelete(schedule)}>
+                  <button disabled={isClosed} onClick={() => onEdit(schedule)}>
+                    수정
+                  </button>
+                  <button className="danger-button" disabled={isClosed} onClick={() => onDelete(schedule)}>
                     삭제
                   </button>
                 </>

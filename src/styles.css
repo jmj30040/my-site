@@ -468,6 +468,10 @@ textarea {
   padding: 16px;
 }
 
+.closed-schedule {
+  background: #fbfbfd;
+}
+
 .card-topline p,
 .bio,
 .meta {
@@ -482,13 +486,27 @@ textarea {
 }
 
 .badges span,
-.count-badge {
+.count-badge,
+.closed-badge {
   background: #eef2f8;
   border-radius: 999px;
   color: #3b4658;
   font-size: 13px;
   font-weight: 800;
   padding: 6px 10px;
+}
+
+.schedule-badges {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.closed-badge {
+  background: #f7e8e6;
+  color: #9d2f25;
 }
 
 .tier-badge,

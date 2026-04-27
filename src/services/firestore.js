@@ -21,6 +21,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import { isScheduleClosed } from '../utils/scheduleStatus';
 
 const SESSION_STORAGE_KEY = 'owFriendsSessionUserId';
 const PROFILE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
@@ -704,6 +705,10 @@ export function joinSchedule(schedule, currentUser) {
   const participants = schedule.participants ?? [];
   const participantIds = schedule.participantIds ?? [];
 
+  if (isScheduleClosed(schedule)) {
+    throw new Error('마감된 일정은 참여할 수 없습니다.');
+  }
+
   if (participantIds.includes(currentUser.id) || participants.includes(currentUser.nickname)) {
     return Promise.resolve();
   }
@@ -715,6 +720,10 @@ export function joinSchedule(schedule, currentUser) {
 }
 
 export function leaveSchedule(schedule, currentUser) {
+  if (isScheduleClosed(schedule)) {
+    throw new Error('마감된 일정은 참여 취소할 수 없습니다.');
+  }
+
   return updateSchedule(schedule.id, {
     participants: (schedule.participants ?? []).filter((participant) => participant !== currentUser.nickname),
     participantIds: (schedule.participantIds ?? []).filter((participantId) => participantId !== currentUser.id),
