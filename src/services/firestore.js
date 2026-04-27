@@ -599,22 +599,6 @@ export function approveUser(userId) {
   });
 }
 
-export function rejectUser(userId) {
-  requireFirebase();
-  return updateDoc(doc(db, 'users', userId), {
-    status: 'rejected',
-    updatedAt: serverTimestamp(),
-  });
-}
-
-export function updateUserAdminFields(userId, updates) {
-  requireFirebase();
-  return updateDoc(doc(db, 'users', userId), {
-    ...updates,
-    updatedAt: serverTimestamp(),
-  });
-}
-
 export async function deleteUserAccount(user) {
   requireFirebase();
   const nicknameKey = user.nicknameKey || (user.nickname ? await getNicknameKey(user.nickname) : '');

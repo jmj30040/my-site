@@ -270,7 +270,7 @@ textarea {
 }
 
 .user-admin-item {
-  grid-template-columns: minmax(180px, 1fr) minmax(260px, 0.9fr) auto;
+  grid-template-columns: minmax(180px, 1fr) auto;
 }
 
 .approval-item p,
@@ -296,22 +296,12 @@ textarea {
   padding: 4px 8px;
 }
 
-.user-admin-controls,
 .user-admin-actions {
   align-items: end;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
-}
-
-.user-admin-controls label {
-  color: #4d586b;
-  display: grid;
-  font-size: 13px;
-  font-weight: 700;
-  gap: 4px;
-  min-width: 120px;
 }
 
 .admin-note {
@@ -766,8 +756,7 @@ textarea {
   .comment-form,
   .filters,
   .section-heading,
-  .user-admin-actions,
-  .user-admin-controls {
+  .user-admin-actions {
     align-items: stretch;
     flex-direction: column;
   }
@@ -776,8 +765,7 @@ textarea {
   .approval-item button,
   .comment-form button,
   .filters select,
-  .user-admin-actions button,
-  .user-admin-controls label {
+  .user-admin-actions button {
     width: 100%;
   }
 

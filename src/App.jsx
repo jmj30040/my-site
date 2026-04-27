@@ -23,14 +23,12 @@ import {
   logout,
   deleteUserAccount,
   issueTemporaryPin,
-  rejectUser,
   signUpWithNickname,
   subscribeAuthUser,
   subscribeProfiles,
   subscribeScheduleComments,
   subscribeSchedules,
   subscribeUsers,
-  updateUserAdminFields,
   updateProfile,
   updateSchedule,
   uploadProfileImage,
@@ -450,47 +448,6 @@ function App() {
     }
   };
 
-  const handleRejectUser = async (user) => {
-    setError('');
-    setNotice('');
-    setTemporaryPinNotice(null);
-
-    if (!currentUser?.isAdmin) {
-      setError('관리자만 가입을 반려할 수 있습니다.');
-      return;
-    }
-
-    try {
-      await rejectUser(user.id);
-      setNotice(`${user.nickname || '사용자'}님의 가입을 반려했습니다.`);
-    } catch (caughtError) {
-      setError(caughtError.message);
-    }
-  };
-
-  const handleUpdateUser = async (user, updates) => {
-    setError('');
-    setNotice('');
-    setTemporaryPinNotice(null);
-
-    if (!currentUser?.isAdmin) {
-      setError('관리자만 회원 정보를 수정할 수 있습니다.');
-      return;
-    }
-
-    if (user.id === currentUser.id && updates.role !== undefined && updates.role !== 'admin') {
-      setError('현재 로그인한 관리자 권한은 직접 해제할 수 없습니다.');
-      return;
-    }
-
-    try {
-      await updateUserAdminFields(user.id, updates);
-      setNotice(`${user.nickname || '사용자'}님의 정보를 수정했습니다.`);
-    } catch (caughtError) {
-      setError(caughtError.message);
-    }
-  };
-
   const handleDeleteUser = async (user) => {
     setError('');
     setNotice('');
@@ -623,9 +580,7 @@ function App() {
             users={users}
             onApprove={handleApproveUser}
             onDelete={handleDeleteUser}
-            onReject={handleRejectUser}
             onRequestPasswordReset={handleRequestPasswordReset}
-            onUpdateUser={handleUpdateUser}
           />
         </section>
       )}

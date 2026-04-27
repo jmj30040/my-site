@@ -14,9 +14,7 @@ export function AdminUserPanel({
   users,
   onApprove,
   onDelete,
-  onReject,
   onRequestPasswordReset,
-  onUpdateUser,
 }) {
   return (
     <section className="admin-panel">
@@ -45,37 +43,9 @@ export function AdminUserPanel({
                   {user.temporaryPinIssuedAt && <span>임시 PIN 발급됨</span>}
                 </div>
                 <p className="meta">가입: {formatDate(user.createdAt)}</p>
-                <div className="user-admin-controls">
-                  <label>
-                    상태
-                    <select
-                      value={status}
-                      onChange={(event) => onUpdateUser(user, { status: event.target.value })}
-                    >
-                      <option value="pending">승인 대기</option>
-                      <option value="approved">승인됨</option>
-                      <option value="rejected">반려됨</option>
-                      <option value="deleted">삭제됨</option>
-                    </select>
-                  </label>
-                  <label>
-                    권한
-                    <select
-                      disabled={isCurrentAdmin}
-                      value={role}
-                      onChange={(event) => onUpdateUser(user, { role: event.target.value === 'admin' ? 'admin' : '' })}
-                    >
-                      <option value="member">일반</option>
-                      <option value="admin">관리자</option>
-                    </select>
-                  </label>
-                </div>
                 <div className="user-admin-actions">
                   <button type="button" onClick={() => onApprove(user)} disabled={status === 'approved'}>
                     승인
-                  </button>
-                  <button type="button" onClick={() => onReject(user)} disabled={status === 'rejected'}>
-                    반려
                   </button>
                   <button type="button" onClick={() => onRequestPasswordReset(user)}>
                     임시 PIN 발급
