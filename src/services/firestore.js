@@ -33,6 +33,7 @@ const PROFILE_IMAGE_MAX_DATA_URL_LENGTH = 300000;
 const PROFILE_IMAGE_QUALITY_STEPS = [0.82, 0.72, 0.62, 0.52, 0.42];
 const PROFILE_PAGE_SIZE = 5;
 const SCHEDULE_LIST_LIMIT = 50;
+const PAST_SCHEDULE_PAGE_SIZE = 5;
 const USER_LIST_LIMIT = 100;
 const CHAT_MESSAGE_LIMIT = 20;
 const CHAT_HISTORY_PAGE_SIZE = 10;
@@ -627,6 +628,35 @@ export function subscribeSchedules(callback, onError) {
     },
     onError,
   );
+}
+
+export async function fetchPastSchedulePage({ cursor = null, pageSize = PAST_SCHEDULE_PAGE_SIZE } = {}) {
+  const constraints = [
+    where('date', '<', getTodayDateString()),
+    orderBy('date', 'desc'),
+  ];
+
+  if (cursor) {
+    constraints.push(startAfter(cursor));
+  }
+
+  constraints.push(limit(pageSize + 1));
+
+  const schedulesSnapshot = await getDocs(query(getCollection('schedules'), ...constraints));
+  const scheduleDocs = schedulesSnapshot.docs.slice(0, pageSize);
+
+  return {
+    cursor: scheduleDocs[scheduleDocs.length - 1] ?? null,
+    hasMore: schedulesSnapshot.docs.length > pageSize,
+    schedules: scheduleDocs.map((scheduleDoc) => ({
+      id: scheduleDoc.id,
+      ...scheduleDoc.data(),
+    })).sort((firstSchedule, secondSchedule) => {
+      const firstDateTime = `${firstSchedule.date ?? ''} ${firstSchedule.startTime ?? ''}`;
+      const secondDateTime = `${secondSchedule.date ?? ''} ${secondSchedule.startTime ?? ''}`;
+      return secondDateTime.localeCompare(firstDateTime);
+    }),
+  };
 }
 
 export function subscribeScheduleComments(callback, onError) {

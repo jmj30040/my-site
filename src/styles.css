@@ -486,6 +486,24 @@ textarea {
   margin-top: 12px;
 }
 
+.past-schedule-controls {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+.past-schedule-section {
+  border-top: 1px solid #e8ecf3;
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.past-schedule-section h3 {
+  margin: 0;
+}
+
 .card-list {
   display: grid;
   gap: 12px;

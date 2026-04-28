@@ -18,6 +18,7 @@ import {
   deleteProfile,
   deleteSchedule,
   fetchOlderChatMessages,
+  fetchPastSchedulePage,
   fetchProfileByOwnerId,
   fetchProfilePage,
   joinSchedule,
@@ -57,6 +58,11 @@ function withTimeout(promise, timeoutMs, timeoutMessage) {
 function App() {
   const [profiles, setProfiles] = useState([]);
   const [schedules, setSchedules] = useState([]);
+  const [pastSchedules, setPastSchedules] = useState([]);
+  const [pastScheduleCursor, setPastScheduleCursor] = useState(null);
+  const [hasMorePastSchedules, setHasMorePastSchedules] = useState(false);
+  const [isPastSchedulesOpen, setIsPastSchedulesOpen] = useState(false);
+  const [isPastScheduleLoading, setIsPastScheduleLoading] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [olderChatMessages, setOlderChatMessages] = useState([]);
   const [hasMoreChatMessages, setHasMoreChatMessages] = useState(false);
@@ -101,6 +107,10 @@ function App() {
     if (!isFirebaseConfigured || !currentUser) {
       setProfiles([]);
       setSchedules([]);
+      setPastSchedules([]);
+      setPastScheduleCursor(null);
+      setHasMorePastSchedules(false);
+      setIsPastSchedulesOpen(false);
       setChatMessages([]);
       setOlderChatMessages([]);
       setHasMoreChatMessages(false);
@@ -467,6 +477,41 @@ function App() {
   const handleOpenScheduleForm = () => {
     setEditingSchedule(null);
     setIsScheduleFormOpen(true);
+  };
+
+  const loadPastSchedules = useCallback(async ({ reset = false } = {}) => {
+    if (!isFirebaseConfigured || !currentUser) {
+      return;
+    }
+
+    setError('');
+    setIsPastScheduleLoading(true);
+
+    try {
+      const result = await fetchPastSchedulePage({
+        cursor: reset ? null : pastScheduleCursor,
+      });
+
+      setPastSchedules((currentSchedules) => (
+        reset ? result.schedules : [...currentSchedules, ...result.schedules]
+      ));
+      setPastScheduleCursor(result.cursor);
+      setHasMorePastSchedules(result.hasMore);
+    } catch (caughtError) {
+      setError(`Firestore read error: ${caughtError.message}`);
+    } finally {
+      setIsPastScheduleLoading(false);
+    }
+  }, [currentUser, pastScheduleCursor]);
+
+  const handleTogglePastSchedules = () => {
+    const nextIsOpen = !isPastSchedulesOpen;
+
+    setIsPastSchedulesOpen(nextIsOpen);
+
+    if (nextIsOpen && pastSchedules.length === 0) {
+      loadPastSchedules({ reset: true });
+    }
   };
 
   const handleEditSchedule = (schedule) => {
@@ -910,14 +955,41 @@ function App() {
             )}
           </div>
           {currentUser ? (
-            <ScheduleList
-              currentUser={isApprovedUser ? currentUser : null}
-              schedules={schedules}
-              onDelete={handleDeleteSchedule}
-              onEdit={handleEditSchedule}
-              onJoin={handleJoinSchedule}
-              onLeave={handleLeaveSchedule}
-            />
+            <>
+              <ScheduleList
+                currentUser={isApprovedUser ? currentUser : null}
+                schedules={schedules}
+                onDelete={handleDeleteSchedule}
+                onEdit={handleEditSchedule}
+                onJoin={handleJoinSchedule}
+                onLeave={handleLeaveSchedule}
+              />
+              <div className="past-schedule-controls">
+                <button type="button" onClick={handleTogglePastSchedules} disabled={isPastScheduleLoading}>
+                  {isPastSchedulesOpen ? '이전 일정 닫기' : '이전 일정 보기'}
+                </button>
+              </div>
+              {isPastSchedulesOpen && (
+                <div className="past-schedule-section">
+                  <h3>이전 일정</h3>
+                  <ScheduleList
+                    currentUser={isApprovedUser ? currentUser : null}
+                    schedules={pastSchedules}
+                    onDelete={handleDeleteSchedule}
+                    onEdit={handleEditSchedule}
+                    onJoin={handleJoinSchedule}
+                    onLeave={handleLeaveSchedule}
+                  />
+                  {hasMorePastSchedules && (
+                    <div className="load-more-row">
+                      <button type="button" onClick={() => loadPastSchedules()} disabled={isPastScheduleLoading}>
+                        {isPastScheduleLoading ? '불러오는 중...' : '이전 일정 더 보기'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           ) : (
             <p className="empty-state">로그인 후 일정 목록을 볼 수 있습니다.</p>
           )}
