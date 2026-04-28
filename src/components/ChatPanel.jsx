@@ -23,32 +23,41 @@ export function ChatPanel({
 }) {
   const [draft, setDraft] = useState('');
   const inputRef = useRef(null);
+  const lastMessageRef = useRef(null);
   const messageListRef = useRef(null);
-  const previousMessagesLengthRef = useRef(0);
+  const previousLastMessageIdRef = useRef('');
   const shouldStickToBottomRef = useRef(true);
 
-  useEffect(() => {
-    const messageList = messageListRef.current;
-
-    if (!messageList) {
-      return;
-    }
-
-    if (messages.length > previousMessagesLengthRef.current && shouldStickToBottomRef.current) {
+  const scrollToBottom = () => {
+    window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        if (!messageListRef.current) {
+        if (!lastMessageRef.current) {
           return;
         }
 
-        messageListRef.current.scrollTo({
-          top: messageListRef.current.scrollHeight,
+        lastMessageRef.current.scrollIntoView({
+          block: 'end',
           behavior: 'auto',
         });
       });
+    });
+  };
+
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    const lastMessageId = lastMessage?.id ?? '';
+    const isNewLastMessage = lastMessageId && lastMessageId !== previousLastMessageIdRef.current;
+
+    if (!isNewLastMessage) {
+      return;
     }
 
-    previousMessagesLengthRef.current = messages.length;
-  }, [messages]);
+    if (!previousLastMessageIdRef.current || lastMessage.ownerId === currentUser.id || shouldStickToBottomRef.current) {
+      scrollToBottom();
+    }
+
+    previousLastMessageIdRef.current = lastMessageId;
+  }, [currentUser.id, messages]);
 
   const handleMessageListScroll = () => {
     const messageList = messageListRef.current;
@@ -77,10 +86,12 @@ export function ChatPanel({
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    shouldStickToBottomRef.current = true;
     const isSaved = await onAddMessage(draft);
 
     if (isSaved) {
       setDraft('');
+      scrollToBottom();
       window.requestAnimationFrame(() => {
         inputRef.current?.focus();
       });
@@ -108,13 +119,18 @@ export function ChatPanel({
               {isLoadingOlderMessages ? '불러오는 중...' : '이전 채팅 보기'}
             </button>
           )}
-          {messages.map((message) => {
+          {messages.map((message, index) => {
             const messageTime = formatMessageTime(message.createdAt);
 
             const isMine = currentUser.id === message.ownerId;
+            const isLastMessage = index === messages.length - 1;
 
             return (
-              <div className={`chat-message ${isMine ? 'my-chat-message' : 'other-chat-message'}`} key={message.id}>
+              <div
+                className={`chat-message ${isMine ? 'my-chat-message' : 'other-chat-message'}`}
+                key={message.id}
+                ref={isLastMessage ? lastMessageRef : null}
+              >
                 <p className="chat-message-meta">
                   {!isMine && <strong>{message.ownerNickname || '알 수 없음'}</strong>}
                   {messageTime && <span>{messageTime}</span>}
@@ -123,7 +139,6 @@ export function ChatPanel({
               </div>
             );
           })}
-          <div className="chat-list-spacer" aria-hidden="true" />
         </div>
       ) : (
         <p className="comment-empty">아직 채팅이 없습니다.</p>
