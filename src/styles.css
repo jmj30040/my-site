@@ -967,10 +967,17 @@ textarea {
   }
 
   .profile-search-form {
-    grid-template-columns: 1fr;
+    align-items: center;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .profile-search-form button {
+    white-space: nowrap;
+    width: auto;
+  }
+
+  .profile-search-form .ghost-button {
+    grid-column: 1 / -1;
     width: 100%;
   }
 
