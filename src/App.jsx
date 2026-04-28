@@ -26,7 +26,7 @@ import {
   signUpWithNickname,
   subscribeAuthUser,
   subscribeProfiles,
-  subscribeScheduleComments,
+  subscribeScheduleCommentsByScheduleIds,
   subscribeSchedules,
   subscribeUsers,
   updateProfile,
@@ -96,7 +96,6 @@ function App() {
 
     let unsubscribeProfiles = () => {};
     let unsubscribeSchedules = () => {};
-    let unsubscribeScheduleComments = () => {};
     let unsubscribeUsers = () => {};
 
     try {
@@ -106,8 +105,11 @@ function App() {
 
       unsubscribeProfiles = subscribeProfiles(setProfiles, handleSubscriptionError);
       unsubscribeSchedules = subscribeSchedules(setSchedules, handleSubscriptionError);
-      unsubscribeScheduleComments = subscribeScheduleComments(setScheduleComments, handleSubscriptionError);
-      unsubscribeUsers = subscribeUsers(setUsers, handleSubscriptionError);
+      if (currentUser.isAdmin) {
+        unsubscribeUsers = subscribeUsers(setUsers, handleSubscriptionError);
+      } else {
+        setUsers([]);
+      }
     } catch (caughtError) {
       setError(caughtError.message);
     }
@@ -115,10 +117,29 @@ function App() {
     return () => {
       unsubscribeProfiles();
       unsubscribeSchedules();
-      unsubscribeScheduleComments();
       unsubscribeUsers();
     };
   }, [currentUser]);
+
+  const scheduleIds = useMemo(() => schedules.map((schedule) => schedule.id).filter(Boolean), [schedules]);
+
+  useEffect(() => {
+    if (!isFirebaseConfigured || !currentUser || scheduleIds.length === 0) {
+      setScheduleComments([]);
+      return undefined;
+    }
+
+    const handleSubscriptionError = (caughtError) => {
+      setError(`Firestore read error: ${caughtError.message}`);
+    };
+
+    try {
+      return subscribeScheduleCommentsByScheduleIds(scheduleIds, setScheduleComments, handleSubscriptionError);
+    } catch (caughtError) {
+      setError(caughtError.message);
+      return undefined;
+    }
+  }, [currentUser, scheduleIds]);
 
   useEffect(() => {
     if (activeSection === 'admin' && !currentUser?.isAdmin) {

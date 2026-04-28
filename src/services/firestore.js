@@ -11,6 +11,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -28,6 +29,10 @@ const PROFILE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 const PROFILE_IMAGE_MAX_DIMENSION = 320;
 const PROFILE_IMAGE_MAX_DATA_URL_LENGTH = 300000;
 const PROFILE_IMAGE_QUALITY_STEPS = [0.82, 0.72, 0.62, 0.52, 0.42];
+const PROFILE_LIST_LIMIT = 100;
+const SCHEDULE_LIST_LIMIT = 50;
+const USER_LIST_LIMIT = 100;
+const FIRESTORE_IN_QUERY_LIMIT = 30;
 
 function requireFirebase() {
   if (!auth || !db) {
@@ -38,6 +43,25 @@ function requireFirebase() {
 function getCollection(collectionName) {
   requireFirebase();
   return collection(db, collectionName);
+}
+
+function getTodayDateString() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function chunkArray(items, chunkSize) {
+  const chunks = [];
+
+  for (let index = 0; index < items.length; index += chunkSize) {
+    chunks.push(items.slice(index, index + chunkSize));
+  }
+
+  return chunks;
 }
 
 function normalizeNickname(nickname) {
@@ -466,7 +490,7 @@ export async function changeCurrentUserNickname(currentUser, nickname) {
 }
 
 export function subscribeProfiles(callback, onError) {
-  const profilesQuery = query(getCollection('profiles'), orderBy('createdAt', 'desc'));
+  const profilesQuery = query(getCollection('profiles'), orderBy('createdAt', 'desc'), limit(PROFILE_LIST_LIMIT));
 
   return onSnapshot(
     profilesQuery,
@@ -535,8 +559,15 @@ export function deleteProfile(id) {
 }
 
 export function subscribeSchedules(callback, onError) {
-  return onSnapshot(
+  const schedulesQuery = query(
     getCollection('schedules'),
+    where('date', '>=', getTodayDateString()),
+    orderBy('date', 'asc'),
+    limit(SCHEDULE_LIST_LIMIT),
+  );
+
+  return onSnapshot(
+    schedulesQuery,
     (snapshot) => {
       const schedules = snapshot.docs
         .map((scheduleDoc) => ({
@@ -555,24 +586,52 @@ export function subscribeSchedules(callback, onError) {
 }
 
 export function subscribeScheduleComments(callback, onError) {
-  const commentsQuery = query(getCollection('scheduleComments'), orderBy('createdAt', 'asc'));
+  return subscribeScheduleCommentsByScheduleIds([], callback, onError);
+}
 
-  return onSnapshot(
-    commentsQuery,
-    (snapshot) => {
-      const comments = snapshot.docs.map((commentDoc) => ({
-        id: commentDoc.id,
-        ...commentDoc.data(),
-      }));
-      callback(comments);
-    },
-    onError,
-  );
+export function subscribeScheduleCommentsByScheduleIds(scheduleIds, callback, onError) {
+  const uniqueScheduleIds = [...new Set(scheduleIds.filter(Boolean))];
+
+  if (uniqueScheduleIds.length === 0) {
+    callback([]);
+    return () => {};
+  }
+
+  const commentGroups = new Map();
+  const scheduleIdChunks = chunkArray(uniqueScheduleIds, FIRESTORE_IN_QUERY_LIMIT);
+  const unsubscribes = scheduleIdChunks.map((scheduleIdChunk, chunkIndex) => {
+    const commentsQuery = query(
+      getCollection('scheduleComments'),
+      where('scheduleId', 'in', scheduleIdChunk),
+    );
+
+    return onSnapshot(
+      commentsQuery,
+      (snapshot) => {
+        commentGroups.set(chunkIndex, snapshot.docs.map((commentDoc) => ({
+          id: commentDoc.id,
+          ...commentDoc.data(),
+        })));
+        callback([...commentGroups.values()].flat().sort((firstComment, secondComment) => {
+          const firstCreatedAt = firstComment.createdAt?.toMillis?.() ?? 0;
+          const secondCreatedAt = secondComment.createdAt?.toMillis?.() ?? 0;
+          return firstCreatedAt - secondCreatedAt;
+        }));
+      },
+      onError,
+    );
+  });
+
+  return () => {
+    unsubscribes.forEach((unsubscribe) => unsubscribe());
+  };
 }
 
 export function subscribeUsers(callback, onError) {
+  const usersQuery = query(getCollection('users'), orderBy('createdAt', 'desc'), limit(USER_LIST_LIMIT));
+
   return onSnapshot(
-    getCollection('users'),
+    usersQuery,
     (snapshot) => {
       const users = snapshot.docs
         .map((userDoc) => ({
