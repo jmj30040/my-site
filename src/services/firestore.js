@@ -11,6 +11,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  increment,
   limit,
   onSnapshot,
   orderBy,
@@ -33,7 +34,7 @@ const PROFILE_IMAGE_QUALITY_STEPS = [0.82, 0.72, 0.62, 0.52, 0.42];
 const PROFILE_PAGE_SIZE = 5;
 const SCHEDULE_LIST_LIMIT = 50;
 const USER_LIST_LIMIT = 100;
-const FIRESTORE_IN_QUERY_LIMIT = 30;
+const CHAT_MESSAGE_LIMIT = 30;
 
 function requireFirebase() {
   if (!auth || !db) {
@@ -53,16 +54,6 @@ function getTodayDateString() {
   const day = String(now.getDate()).padStart(2, '0');
 
   return `${year}-${month}-${day}`;
-}
-
-function chunkArray(items, chunkSize) {
-  const chunks = [];
-
-  for (let index = 0; index < items.length; index += chunkSize) {
-    chunks.push(items.slice(index, index + chunkSize));
-  }
-
-  return chunks;
 }
 
 function normalizeNickname(nickname) {
@@ -641,6 +632,25 @@ export function subscribeScheduleComments(callback, onError) {
   return subscribeScheduleCommentsByScheduleIds([], callback, onError);
 }
 
+export function subscribeChatMessages(callback, onError) {
+  const messagesQuery = query(
+    getCollection('chatMessages'),
+    orderBy('createdAt', 'desc'),
+    limit(CHAT_MESSAGE_LIMIT),
+  );
+
+  return onSnapshot(
+    messagesQuery,
+    (snapshot) => {
+      callback(snapshot.docs.map((messageDoc) => ({
+        id: messageDoc.id,
+        ...messageDoc.data(),
+      })).reverse());
+    },
+    onError,
+  );
+}
+
 export function subscribeScheduleCommentsByScheduleIds(scheduleIds, callback, onError) {
   const uniqueScheduleIds = [...new Set(scheduleIds.filter(Boolean))];
 
@@ -650,20 +660,21 @@ export function subscribeScheduleCommentsByScheduleIds(scheduleIds, callback, on
   }
 
   const commentGroups = new Map();
-  const scheduleIdChunks = chunkArray(uniqueScheduleIds, FIRESTORE_IN_QUERY_LIMIT);
-  const unsubscribes = scheduleIdChunks.map((scheduleIdChunk, chunkIndex) => {
+  const unsubscribes = uniqueScheduleIds.map((scheduleId) => {
     const commentsQuery = query(
       getCollection('scheduleComments'),
-      where('scheduleId', 'in', scheduleIdChunk),
+      where('scheduleId', '==', scheduleId),
+      orderBy('createdAt', 'desc'),
+      limit(CHAT_MESSAGE_LIMIT),
     );
 
     return onSnapshot(
       commentsQuery,
       (snapshot) => {
-        commentGroups.set(chunkIndex, snapshot.docs.map((commentDoc) => ({
+        commentGroups.set(scheduleId, snapshot.docs.map((commentDoc) => ({
           id: commentDoc.id,
           ...commentDoc.data(),
-        })));
+        })).reverse());
         callback([...commentGroups.values()].flat().sort((firstComment, secondComment) => {
           const firstCreatedAt = firstComment.createdAt?.toMillis?.() ?? 0;
           const secondCreatedAt = secondComment.createdAt?.toMillis?.() ?? 0;
@@ -846,15 +857,48 @@ export function createScheduleComment(scheduleId, message, currentUser) {
   const normalizedMessage = message.trim().replace(/\s+/g, ' ');
 
   if (!normalizedMessage) {
-    throw new Error('댓글 내용을 입력해주세요.');
+    throw new Error('채팅 내용을 입력해주세요.');
   }
 
   if (normalizedMessage.length > 160) {
-    throw new Error('댓글은 160자 이하로 입력해주세요.');
+    throw new Error('채팅은 160자 이하로 입력해주세요.');
   }
 
-  return addDoc(getCollection('scheduleComments'), {
+  const commentsRef = getCollection('scheduleComments');
+  const scheduleRef = doc(db, 'schedules', scheduleId);
+  const commentRef = doc(commentsRef);
+  const batch = writeBatch(db);
+
+  batch.set(commentRef, {
     scheduleId,
+    message: normalizedMessage,
+    ownerId: currentUser.id,
+    ownerNickname: currentUser.nickname,
+    createdAt: serverTimestamp(),
+  });
+  batch.update(scheduleRef, {
+    lastMessageAt: serverTimestamp(),
+    lastMessagePreview: normalizedMessage,
+    messageCount: increment(1),
+    updatedAt: serverTimestamp(),
+  });
+
+  return batch.commit();
+}
+
+export function createChatMessage(message, currentUser) {
+  requireFirebase();
+  const normalizedMessage = message.trim().replace(/\s+/g, ' ');
+
+  if (!normalizedMessage) {
+    throw new Error('채팅 내용을 입력해주세요.');
+  }
+
+  if (normalizedMessage.length > 160) {
+    throw new Error('채팅은 160자 이하로 입력해주세요.');
+  }
+
+  return addDoc(getCollection('chatMessages'), {
     message: normalizedMessage,
     ownerId: currentUser.id,
     ownerNickname: currentUser.nickname,
@@ -862,7 +906,31 @@ export function createScheduleComment(scheduleId, message, currentUser) {
   });
 }
 
-export function deleteScheduleComment(commentId) {
+export function deleteScheduleComment(comment) {
   requireFirebase();
-  return deleteDoc(doc(db, 'scheduleComments', commentId));
+
+  if (typeof comment === 'string') {
+    return deleteDoc(doc(db, 'scheduleComments', comment));
+  }
+
+  const commentRef = doc(db, 'scheduleComments', comment.id);
+
+  if (!comment.scheduleId) {
+    return deleteDoc(commentRef);
+  }
+
+  return runTransaction(db, async (transaction) => {
+    const scheduleRef = doc(db, 'schedules', comment.scheduleId);
+    const scheduleDoc = await transaction.get(scheduleRef);
+    const currentMessageCount = scheduleDoc.exists() ? scheduleDoc.data().messageCount ?? 0 : 0;
+
+    transaction.delete(commentRef);
+
+    if (scheduleDoc.exists()) {
+      transaction.update(scheduleRef, {
+        messageCount: Math.max(currentMessageCount - 1, 0),
+        updatedAt: serverTimestamp(),
+      });
+    }
+  });
 }

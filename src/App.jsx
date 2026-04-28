@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AdminUserPanel } from './components/AdminUserPanel';
 import { AuthPanel } from './components/AuthPanel';
+import { ChatPanel } from './components/ChatPanel';
 import { ProfileForm } from './components/ProfileForm';
 import { ProfileList } from './components/ProfileList';
 import { ScheduleForm } from './components/ScheduleForm';
@@ -10,11 +11,10 @@ import { isFirebaseConfigured, missingFirebaseConfigKeys } from './firebase';
 import {
   createProfile,
   createSchedule,
-  createScheduleComment,
   changeCurrentUserNickname,
   changeCurrentUserPin,
   approveUser,
-  deleteScheduleComment,
+  createChatMessage,
   deleteProfile,
   deleteSchedule,
   fetchProfileByOwnerId,
@@ -27,7 +27,7 @@ import {
   issueTemporaryPin,
   signUpWithNickname,
   subscribeAuthUser,
-  subscribeScheduleCommentsByScheduleIds,
+  subscribeChatMessages,
   subscribeSchedules,
   subscribeUsers,
   updateProfile,
@@ -56,7 +56,7 @@ function withTimeout(promise, timeoutMs, timeoutMessage) {
 function App() {
   const [profiles, setProfiles] = useState([]);
   const [schedules, setSchedules] = useState([]);
-  const [scheduleComments, setScheduleComments] = useState([]);
+  const [chatMessages, setChatMessages] = useState([]);
   const [users, setUsers] = useState([]);
   const [myProfile, setMyProfile] = useState(null);
   const [editingProfile, setEditingProfile] = useState(null);
@@ -97,7 +97,7 @@ function App() {
     if (!isFirebaseConfigured || !currentUser) {
       setProfiles([]);
       setSchedules([]);
-      setScheduleComments([]);
+      setChatMessages([]);
       setUsers([]);
       setMyProfile(null);
       setProfileCursor(null);
@@ -201,11 +201,9 @@ function App() {
     setMyProfile(await fetchProfileByOwnerId(currentUser.id));
   }, [currentUser]);
 
-  const scheduleIds = useMemo(() => schedules.map((schedule) => schedule.id).filter(Boolean), [schedules]);
-
   useEffect(() => {
-    if (!isFirebaseConfigured || !currentUser || scheduleIds.length === 0) {
-      setScheduleComments([]);
+    if (!isFirebaseConfigured || !currentUser || activeSection !== 'chat') {
+      setChatMessages([]);
       return undefined;
     }
 
@@ -214,12 +212,12 @@ function App() {
     };
 
     try {
-      return subscribeScheduleCommentsByScheduleIds(scheduleIds, setScheduleComments, handleSubscriptionError);
+      return subscribeChatMessages(setChatMessages, handleSubscriptionError);
     } catch (caughtError) {
       setError(caughtError.message);
       return undefined;
     }
-  }, [currentUser, scheduleIds]);
+  }, [activeSection, currentUser]);
 
   useEffect(() => {
     if (activeSection === 'admin' && !currentUser?.isAdmin) {
@@ -228,19 +226,6 @@ function App() {
   }, [activeSection, currentUser]);
 
   const isApprovedUser = Boolean(currentUser && (currentUser.status === 'approved' || currentUser.isAdmin));
-
-  const commentsBySchedule = useMemo(() => {
-    return scheduleComments.reduce((groupedComments, comment) => {
-      if (!comment.scheduleId) {
-        return groupedComments;
-      }
-
-      return {
-        ...groupedComments,
-        [comment.scheduleId]: [...(groupedComments[comment.scheduleId] ?? []), comment],
-      };
-    }, {});
-  }, [scheduleComments]);
 
   const requireLogin = () => {
     if (isApprovedUser) {
@@ -566,7 +551,7 @@ function App() {
     }
   };
 
-  const handleAddScheduleComment = async (schedule, message) => {
+  const handleAddChatMessage = async (message) => {
     setError('');
 
     if (!requireLogin()) {
@@ -574,30 +559,11 @@ function App() {
     }
 
     try {
-      await createScheduleComment(schedule.id, message, currentUser);
+      await createChatMessage(message, currentUser);
       return true;
     } catch (caughtError) {
       setError(caughtError.message);
       return false;
-    }
-  };
-
-  const handleDeleteScheduleComment = async (comment) => {
-    setError('');
-
-    if (!requireLogin()) {
-      return;
-    }
-
-    if (comment.ownerId !== currentUser.id && !currentUser.isAdmin) {
-      setError('본인이 작성한 댓글만 삭제할 수 있습니다.');
-      return;
-    }
-
-    try {
-      await deleteScheduleComment(comment.id);
-    } catch (caughtError) {
-      setError(caughtError.message);
     }
   };
 
@@ -732,6 +698,14 @@ function App() {
         >
           티어표
         </button>
+        <button
+          aria-pressed={activeSection === 'chat'}
+          className={activeSection === 'chat' ? 'active-tab' : ''}
+          type="button"
+          onClick={() => setActiveSection('chat')}
+        >
+          채팅
+        </button>
         {currentUser?.isAdmin && (
           <button
             aria-pressed={activeSection === 'admin'}
@@ -755,6 +729,26 @@ function App() {
           />
         </section>
       )}
+
+      <section className={`tab-panel ${activeSection === 'chat' ? 'active-panel' : ''}`}>
+        <div className="panel">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Live Chat</p>
+              <h2>채팅</h2>
+            </div>
+          </div>
+          {currentUser ? (
+            <ChatPanel
+              currentUser={isApprovedUser ? currentUser : null}
+              messages={chatMessages}
+              onAddMessage={handleAddChatMessage}
+            />
+          ) : (
+            <p className="empty-state">로그인 후 채팅을 볼 수 있습니다.</p>
+          )}
+        </div>
+      </section>
 
       <section className={`workspace tab-panel ${isProfileFormOpen ? '' : 'workspace-list-only'} ${activeSection === 'profiles' ? 'active-panel' : ''}`}>
         <div className="panel list-panel">
@@ -867,11 +861,8 @@ function App() {
           </div>
           {currentUser ? (
             <ScheduleList
-              commentsBySchedule={commentsBySchedule}
               currentUser={isApprovedUser ? currentUser : null}
               schedules={schedules}
-              onAddComment={handleAddScheduleComment}
-              onDeleteComment={handleDeleteScheduleComment}
               onDelete={handleDeleteSchedule}
               onEdit={handleEditSchedule}
               onJoin={handleJoinSchedule}
