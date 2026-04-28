@@ -746,7 +746,12 @@ textarea {
   gap: 10px;
   max-height: 420px;
   overflow: auto;
-  padding: 12px 12px 18px;
+  padding: 12px;
+  scroll-padding-bottom: 36px;
+}
+
+.chat-list-spacer {
+  height: 24px;
 }
 
 .load-older-chat-button {

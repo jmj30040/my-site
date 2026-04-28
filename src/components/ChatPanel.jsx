@@ -40,7 +40,10 @@ export function ChatPanel({
           return;
         }
 
-        messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+        messageListRef.current.scrollTo({
+          top: messageListRef.current.scrollHeight,
+          behavior: 'auto',
+        });
       });
     }
 
@@ -120,6 +123,7 @@ export function ChatPanel({
               </div>
             );
           })}
+          <div className="chat-list-spacer" aria-hidden="true" />
         </div>
       ) : (
         <p className="comment-empty">아직 채팅이 없습니다.</p>
