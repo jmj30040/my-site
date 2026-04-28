@@ -23,7 +23,6 @@ export function ChatPanel({
 }) {
   const [draft, setDraft] = useState('');
   const inputRef = useRef(null);
-  const lastMessageRef = useRef(null);
   const messageListRef = useRef(null);
   const previousLastMessageIdRef = useRef('');
   const shouldStickToBottomRef = useRef(true);
@@ -31,14 +30,11 @@ export function ChatPanel({
   const scrollToBottom = () => {
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        if (!lastMessageRef.current) {
+        if (!messageListRef.current) {
           return;
         }
 
-        lastMessageRef.current.scrollIntoView({
-          block: 'end',
-          behavior: 'auto',
-        });
+        messageListRef.current.scrollTop = messageListRef.current.scrollHeight - messageListRef.current.clientHeight;
       });
     });
   };
@@ -119,17 +115,15 @@ export function ChatPanel({
               {isLoadingOlderMessages ? '불러오는 중...' : '이전 채팅 보기'}
             </button>
           )}
-          {messages.map((message, index) => {
+          {messages.map((message) => {
             const messageTime = formatMessageTime(message.createdAt);
 
             const isMine = currentUser.id === message.ownerId;
-            const isLastMessage = index === messages.length - 1;
 
             return (
               <div
                 className={`chat-message ${isMine ? 'my-chat-message' : 'other-chat-message'}`}
                 key={message.id}
-                ref={isLastMessage ? lastMessageRef : null}
               >
                 <p className="chat-message-meta">
                   {!isMine && <strong>{message.ownerNickname || '알 수 없음'}</strong>}
