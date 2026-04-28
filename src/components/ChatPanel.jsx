@@ -35,7 +35,13 @@ export function ChatPanel({
     }
 
     if (messages.length > previousMessagesLengthRef.current && shouldStickToBottomRef.current) {
-      messageList.scrollTop = messageList.scrollHeight;
+      window.requestAnimationFrame(() => {
+        if (!messageListRef.current) {
+          return;
+        }
+
+        messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+      });
     }
 
     previousMessagesLengthRef.current = messages.length;

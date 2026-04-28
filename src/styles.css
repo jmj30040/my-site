@@ -746,7 +746,7 @@ textarea {
   gap: 10px;
   max-height: 420px;
   overflow: auto;
-  padding: 12px;
+  padding: 12px 12px 18px;
 }
 
 .load-older-chat-button {
