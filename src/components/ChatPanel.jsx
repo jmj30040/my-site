@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 function formatMessageTime(createdAt) {
   if (!createdAt?.toDate) {
@@ -15,6 +15,16 @@ function formatMessageTime(createdAt) {
 
 export function ChatPanel({ currentUser, messages, onAddMessage }) {
   const [draft, setDraft] = useState('');
+  const inputRef = useRef(null);
+  const messageListRef = useRef(null);
+
+  useEffect(() => {
+    if (!messageListRef.current) {
+      return;
+    }
+
+    messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+  }, [messages]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -22,6 +32,9 @@ export function ChatPanel({ currentUser, messages, onAddMessage }) {
 
     if (isSaved) {
       setDraft('');
+      window.requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
     }
   };
 
@@ -40,7 +53,7 @@ export function ChatPanel({ currentUser, messages, onAddMessage }) {
       </div>
 
       {messages.length > 0 ? (
-        <div className="comment-list chat-message-list">
+        <div className="comment-list chat-message-list" ref={messageListRef}>
           {messages.map((message) => {
             const messageTime = formatMessageTime(message.createdAt);
 
@@ -63,6 +76,7 @@ export function ChatPanel({ currentUser, messages, onAddMessage }) {
 
       <form className="comment-form" onSubmit={handleSubmit}>
         <input
+          ref={inputRef}
           maxLength={160}
           placeholder="메시지 입력"
           value={draft}
