@@ -13,18 +13,58 @@ function formatMessageTime(createdAt) {
   }).format(createdAt.toDate());
 }
 
-export function ChatPanel({ currentUser, messages, onAddMessage }) {
+export function ChatPanel({
+  currentUser,
+  hasMoreMessages = false,
+  isLoadingOlderMessages = false,
+  messages,
+  onAddMessage,
+  onLoadOlderMessages,
+}) {
   const [draft, setDraft] = useState('');
   const inputRef = useRef(null);
   const messageListRef = useRef(null);
+  const previousMessagesLengthRef = useRef(0);
+  const shouldStickToBottomRef = useRef(true);
 
   useEffect(() => {
-    if (!messageListRef.current) {
+    const messageList = messageListRef.current;
+
+    if (!messageList) {
       return;
     }
 
-    messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+    if (messages.length > previousMessagesLengthRef.current && shouldStickToBottomRef.current) {
+      messageList.scrollTop = messageList.scrollHeight;
+    }
+
+    previousMessagesLengthRef.current = messages.length;
   }, [messages]);
+
+  const handleMessageListScroll = () => {
+    const messageList = messageListRef.current;
+
+    if (!messageList) {
+      return;
+    }
+
+    const distanceFromBottom = messageList.scrollHeight - messageList.scrollTop - messageList.clientHeight;
+    shouldStickToBottomRef.current = distanceFromBottom < 80;
+
+    if (messageList.scrollTop <= 24 && hasMoreMessages && !isLoadingOlderMessages) {
+      const previousScrollHeight = messageList.scrollHeight;
+
+      Promise.resolve(onLoadOlderMessages()).finally(() => {
+        window.requestAnimationFrame(() => {
+          if (!messageListRef.current) {
+            return;
+          }
+
+          messageListRef.current.scrollTop = messageListRef.current.scrollHeight - previousScrollHeight;
+        });
+      });
+    }
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -53,7 +93,12 @@ export function ChatPanel({ currentUser, messages, onAddMessage }) {
       </div>
 
       {messages.length > 0 ? (
-        <div className="comment-list chat-message-list" ref={messageListRef}>
+        <div className="comment-list chat-message-list" ref={messageListRef} onScroll={handleMessageListScroll}>
+          {hasMoreMessages && (
+            <button className="load-older-chat-button" type="button" onClick={onLoadOlderMessages} disabled={isLoadingOlderMessages}>
+              {isLoadingOlderMessages ? '불러오는 중...' : '이전 채팅 보기'}
+            </button>
+          )}
           {messages.map((message) => {
             const messageTime = formatMessageTime(message.createdAt);
 
@@ -74,7 +119,7 @@ export function ChatPanel({ currentUser, messages, onAddMessage }) {
         <p className="comment-empty">아직 채팅이 없습니다.</p>
       )}
 
-      <form className="comment-form" onSubmit={handleSubmit}>
+      <form className="comment-form chat-form" onSubmit={handleSubmit}>
         <input
           ref={inputRef}
           maxLength={160}

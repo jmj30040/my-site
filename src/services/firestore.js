@@ -34,7 +34,8 @@ const PROFILE_IMAGE_QUALITY_STEPS = [0.82, 0.72, 0.62, 0.52, 0.42];
 const PROFILE_PAGE_SIZE = 5;
 const SCHEDULE_LIST_LIMIT = 50;
 const USER_LIST_LIMIT = 100;
-const CHAT_MESSAGE_LIMIT = 30;
+const CHAT_MESSAGE_LIMIT = 20;
+const CHAT_HISTORY_PAGE_SIZE = 10;
 
 function requireFirebase() {
   if (!auth || !db) {
@@ -649,6 +650,31 @@ export function subscribeChatMessages(callback, onError) {
     },
     onError,
   );
+}
+
+export async function fetchOlderChatMessages(oldestMessage) {
+  if (!oldestMessage?.createdAt) {
+    return {
+      hasMore: false,
+      messages: [],
+    };
+  }
+
+  const messagesSnapshot = await getDocs(query(
+    getCollection('chatMessages'),
+    orderBy('createdAt', 'desc'),
+    startAfter(oldestMessage.createdAt),
+    limit(CHAT_HISTORY_PAGE_SIZE + 1),
+  ));
+  const messageDocs = messagesSnapshot.docs.slice(0, CHAT_HISTORY_PAGE_SIZE);
+
+  return {
+    hasMore: messagesSnapshot.docs.length > CHAT_HISTORY_PAGE_SIZE,
+    messages: messageDocs.map((messageDoc) => ({
+      id: messageDoc.id,
+      ...messageDoc.data(),
+    })).reverse(),
+  };
 }
 
 export function subscribeScheduleCommentsByScheduleIds(scheduleIds, callback, onError) {

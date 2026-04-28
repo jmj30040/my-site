@@ -17,6 +17,7 @@ import {
   createChatMessage,
   deleteProfile,
   deleteSchedule,
+  fetchOlderChatMessages,
   fetchProfileByOwnerId,
   fetchProfilePage,
   joinSchedule,
@@ -57,6 +58,9 @@ function App() {
   const [profiles, setProfiles] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [chatMessages, setChatMessages] = useState([]);
+  const [olderChatMessages, setOlderChatMessages] = useState([]);
+  const [hasMoreChatMessages, setHasMoreChatMessages] = useState(false);
+  const [isLoadingOlderChatMessages, setIsLoadingOlderChatMessages] = useState(false);
   const [users, setUsers] = useState([]);
   const [myProfile, setMyProfile] = useState(null);
   const [editingProfile, setEditingProfile] = useState(null);
@@ -98,6 +102,8 @@ function App() {
       setProfiles([]);
       setSchedules([]);
       setChatMessages([]);
+      setOlderChatMessages([]);
+      setHasMoreChatMessages(false);
       setUsers([]);
       setMyProfile(null);
       setProfileCursor(null);
@@ -204,6 +210,8 @@ function App() {
   useEffect(() => {
     if (!isFirebaseConfigured || !currentUser || activeSection !== 'chat') {
       setChatMessages([]);
+      setOlderChatMessages([]);
+      setHasMoreChatMessages(false);
       return undefined;
     }
 
@@ -212,7 +220,13 @@ function App() {
     };
 
     try {
-      return subscribeChatMessages(setChatMessages, handleSubscriptionError);
+      return subscribeChatMessages((messages) => {
+        setChatMessages(messages);
+        setOlderChatMessages((currentMessages) => (
+          currentMessages.filter((message) => !messages.some((liveMessage) => liveMessage.id === message.id))
+        ));
+        setHasMoreChatMessages(messages.length >= 20);
+      }, handleSubscriptionError);
     } catch (caughtError) {
       setError(caughtError.message);
       return undefined;
@@ -567,6 +581,39 @@ function App() {
     }
   };
 
+  const handleLoadOlderChatMessages = async () => {
+    if (isLoadingOlderChatMessages) {
+      return;
+    }
+
+    const oldestMessage = olderChatMessages[0] ?? chatMessages[0];
+
+    if (!oldestMessage) {
+      return;
+    }
+
+    setError('');
+    setIsLoadingOlderChatMessages(true);
+
+    try {
+      const result = await fetchOlderChatMessages(oldestMessage);
+
+      setOlderChatMessages((currentMessages) => {
+        const existingMessageIds = new Set([
+          ...currentMessages.map((message) => message.id),
+          ...chatMessages.map((message) => message.id),
+        ]);
+        const nextMessages = result.messages.filter((message) => !existingMessageIds.has(message.id));
+        return [...nextMessages, ...currentMessages];
+      });
+      setHasMoreChatMessages(result.hasMore);
+    } catch (caughtError) {
+      setError(`Firestore read error: ${caughtError.message}`);
+    } finally {
+      setIsLoadingOlderChatMessages(false);
+    }
+  };
+
   const handleApproveUser = async (user) => {
     setError('');
     setNotice('');
@@ -741,8 +788,11 @@ function App() {
           {currentUser ? (
             <ChatPanel
               currentUser={isApprovedUser ? currentUser : null}
-              messages={chatMessages}
+              hasMoreMessages={hasMoreChatMessages}
+              isLoadingOlderMessages={isLoadingOlderChatMessages}
+              messages={[...olderChatMessages, ...chatMessages]}
               onAddMessage={handleAddChatMessage}
+              onLoadOlderMessages={handleLoadOlderChatMessages}
             />
           ) : (
             <p className="empty-state">로그인 후 채팅을 볼 수 있습니다.</p>

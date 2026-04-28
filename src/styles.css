@@ -725,6 +725,11 @@ textarea {
   padding: 12px;
 }
 
+.load-older-chat-button {
+  justify-self: center;
+  min-height: 32px;
+}
+
 .chat-message {
   display: grid;
   gap: 4px;
@@ -915,6 +920,10 @@ textarea {
 
   .comment-form {
     grid-template-columns: 1fr;
+  }
+
+  .chat-form {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .profile-search-form {
