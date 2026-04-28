@@ -947,12 +947,23 @@ textarea {
   }
 
   .chat-form {
+    align-items: center;
+    display: grid;
+    flex-direction: row;
     grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .chat-form input {
+    min-width: 0;
   }
 
   .chat-form .primary-button {
     white-space: nowrap;
     width: auto;
+  }
+
+  .chat-message-list {
+    max-height: min(52vh, 360px);
   }
 
   .profile-search-form {
