@@ -127,7 +127,13 @@ export function ChatPanel({
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
         />
-        <button type="submit" disabled={!draft.trim()}>
+        <button
+          className="primary-button"
+          type="submit"
+          disabled={!draft.trim()}
+          onMouseDown={(event) => event.preventDefault()}
+          onTouchStart={(event) => event.preventDefault()}
+        >
           보내기
         </button>
       </form>
