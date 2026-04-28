@@ -17,6 +17,7 @@ import {
   query,
   runTransaction,
   serverTimestamp,
+  startAfter,
   updateDoc,
   where,
   writeBatch,
@@ -29,7 +30,7 @@ const PROFILE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 const PROFILE_IMAGE_MAX_DIMENSION = 320;
 const PROFILE_IMAGE_MAX_DATA_URL_LENGTH = 300000;
 const PROFILE_IMAGE_QUALITY_STEPS = [0.82, 0.72, 0.62, 0.52, 0.42];
-const PROFILE_LIST_LIMIT = 100;
+const PROFILE_PAGE_SIZE = 5;
 const SCHEDULE_LIST_LIMIT = 50;
 const USER_LIST_LIMIT = 100;
 const FIRESTORE_IN_QUERY_LIMIT = 30;
@@ -489,20 +490,71 @@ export async function changeCurrentUserNickname(currentUser, nickname) {
   await batch.commit();
 }
 
-export function subscribeProfiles(callback, onError) {
-  const profilesQuery = query(getCollection('profiles'), orderBy('createdAt', 'desc'), limit(PROFILE_LIST_LIMIT));
+export async function fetchProfilePage({
+  cursor = null,
+  pageSize = PROFILE_PAGE_SIZE,
+  role = '전체',
+  searchTerm = '',
+  tier = '전체',
+} = {}) {
+  const constraints = [];
+  const normalizedSearchTerm = searchTerm.trim();
 
-  return onSnapshot(
-    profilesQuery,
-    (snapshot) => {
-      const profiles = snapshot.docs.map((profileDoc) => ({
+  if (tier !== '전체') {
+    constraints.push(where('tier', '==', tier));
+  }
+
+  if (role !== '전체') {
+    constraints.push(where('role', '==', role));
+  }
+
+  if (normalizedSearchTerm) {
+    constraints.push(
+      orderBy('ownerNickname', 'asc'),
+      where('ownerNickname', '>=', normalizedSearchTerm),
+      where('ownerNickname', '<=', `${normalizedSearchTerm}\uf8ff`),
+    );
+  } else {
+    constraints.push(orderBy('createdAt', 'desc'));
+  }
+
+  if (cursor) {
+    constraints.push(startAfter(cursor));
+  }
+
+  constraints.push(limit(pageSize + 1));
+
+  const profilesSnapshot = await getDocs(query(getCollection('profiles'), ...constraints));
+  const profileDocs = profilesSnapshot.docs.slice(0, pageSize);
+
+  return {
+    cursor: profileDocs[profileDocs.length - 1] ?? null,
+    hasMore: profilesSnapshot.docs.length > pageSize,
+    profiles: profileDocs.map((profileDoc) => ({
+      id: profileDoc.id,
+      ...profileDoc.data(),
+    })),
+  };
+}
+
+export async function fetchProfileByOwnerId(ownerId) {
+  if (!ownerId) {
+    return null;
+  }
+
+  const profilesSnapshot = await getDocs(query(
+    getCollection('profiles'),
+    where('ownerId', '==', ownerId),
+    limit(1),
+  ));
+  const profileDoc = profilesSnapshot.docs[0];
+
+  return profileDoc
+    ? {
         id: profileDoc.id,
         ...profileDoc.data(),
-      }));
-      callback(profiles);
-    },
-    onError,
-  );
+      }
+    : null;
 }
 
 export async function uploadProfileImage(imageFile) {

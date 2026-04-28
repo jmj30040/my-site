@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AdminUserPanel } from './components/AdminUserPanel';
 import { AuthPanel } from './components/AuthPanel';
 import { ProfileForm } from './components/ProfileForm';
@@ -17,6 +17,8 @@ import {
   deleteScheduleComment,
   deleteProfile,
   deleteSchedule,
+  fetchProfileByOwnerId,
+  fetchProfilePage,
   joinSchedule,
   leaveSchedule,
   loginWithNickname,
@@ -25,7 +27,6 @@ import {
   issueTemporaryPin,
   signUpWithNickname,
   subscribeAuthUser,
-  subscribeProfiles,
   subscribeScheduleCommentsByScheduleIds,
   subscribeSchedules,
   subscribeUsers,
@@ -36,6 +37,7 @@ import {
 import { isScheduleClosed } from './utils/scheduleStatus';
 
 const PROFILE_SAVE_TIMEOUT_MS = 45000;
+const PROFILE_PAGE_SIZE = 5;
 
 function withTimeout(promise, timeoutMs, timeoutMessage) {
   let timeoutId;
@@ -56,12 +58,18 @@ function App() {
   const [schedules, setSchedules] = useState([]);
   const [scheduleComments, setScheduleComments] = useState([]);
   const [users, setUsers] = useState([]);
+  const [myProfile, setMyProfile] = useState(null);
   const [editingProfile, setEditingProfile] = useState(null);
   const [editingSchedule, setEditingSchedule] = useState(null);
   const [isProfileFormOpen, setIsProfileFormOpen] = useState(false);
   const [isScheduleFormOpen, setIsScheduleFormOpen] = useState(false);
   const [tierFilter, setTierFilter] = useState('전체');
   const [roleFilter, setRoleFilter] = useState('전체');
+  const [profileSearchDraft, setProfileSearchDraft] = useState('');
+  const [profileSearchTerm, setProfileSearchTerm] = useState('');
+  const [profileCursor, setProfileCursor] = useState(null);
+  const [hasMoreProfiles, setHasMoreProfiles] = useState(false);
+  const [isProfileListLoading, setIsProfileListLoading] = useState(false);
   const [activeSection, setActiveSection] = useState('schedules');
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -91,10 +99,12 @@ function App() {
       setSchedules([]);
       setScheduleComments([]);
       setUsers([]);
+      setMyProfile(null);
+      setProfileCursor(null);
+      setHasMoreProfiles(false);
       return undefined;
     }
 
-    let unsubscribeProfiles = () => {};
     let unsubscribeSchedules = () => {};
     let unsubscribeUsers = () => {};
 
@@ -103,7 +113,6 @@ function App() {
         setError(`Firestore read error: ${caughtError.message}`);
       };
 
-      unsubscribeProfiles = subscribeProfiles(setProfiles, handleSubscriptionError);
       unsubscribeSchedules = subscribeSchedules(setSchedules, handleSubscriptionError);
       if (currentUser.isAdmin) {
         unsubscribeUsers = subscribeUsers(setUsers, handleSubscriptionError);
@@ -115,10 +124,81 @@ function App() {
     }
 
     return () => {
-      unsubscribeProfiles();
       unsubscribeSchedules();
       unsubscribeUsers();
     };
+  }, [currentUser]);
+
+  const loadProfiles = useCallback(async ({ reset = false } = {}) => {
+    if (!isFirebaseConfigured || !currentUser) {
+      return;
+    }
+
+    setError('');
+    setIsProfileListLoading(true);
+
+    try {
+      const result = await fetchProfilePage({
+        cursor: reset ? null : profileCursor,
+        pageSize: PROFILE_PAGE_SIZE,
+        role: roleFilter,
+        searchTerm: profileSearchTerm,
+        tier: tierFilter,
+      });
+
+      setProfiles((currentProfiles) => (reset ? result.profiles : [...currentProfiles, ...result.profiles]));
+      setProfileCursor(result.cursor);
+      setHasMoreProfiles(result.hasMore);
+    } catch (caughtError) {
+      setError(`Firestore read error: ${caughtError.message}`);
+    } finally {
+      setIsProfileListLoading(false);
+    }
+  }, [currentUser, profileCursor, profileSearchTerm, roleFilter, tierFilter]);
+
+  useEffect(() => {
+    if (!isFirebaseConfigured || !currentUser) {
+      return;
+    }
+
+    setProfiles([]);
+    setProfileCursor(null);
+    setHasMoreProfiles(false);
+    loadProfiles({ reset: true });
+  }, [currentUser, profileSearchTerm, roleFilter, tierFilter]);
+
+  useEffect(() => {
+    if (!isFirebaseConfigured || !currentUser) {
+      setMyProfile(null);
+      return;
+    }
+
+    let isActive = true;
+
+    fetchProfileByOwnerId(currentUser.id)
+      .then((profile) => {
+        if (isActive) {
+          setMyProfile(profile);
+        }
+      })
+      .catch((caughtError) => {
+        if (isActive) {
+          setError(`Firestore read error: ${caughtError.message}`);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [currentUser]);
+
+  const refreshMyProfile = useCallback(async () => {
+    if (!isFirebaseConfigured || !currentUser) {
+      setMyProfile(null);
+      return;
+    }
+
+    setMyProfile(await fetchProfileByOwnerId(currentUser.id));
   }, [currentUser]);
 
   const scheduleIds = useMemo(() => schedules.map((schedule) => schedule.id).filter(Boolean), [schedules]);
@@ -148,22 +228,6 @@ function App() {
   }, [activeSection, currentUser]);
 
   const isApprovedUser = Boolean(currentUser && (currentUser.status === 'approved' || currentUser.isAdmin));
-
-  const myProfile = useMemo(() => {
-    if (!currentUser) {
-      return null;
-    }
-
-    return profiles.find((profile) => profile.ownerId === currentUser.id) ?? null;
-  }, [currentUser, profiles]);
-
-  const filteredProfiles = useMemo(() => {
-    return profiles.filter((profile) => {
-      const matchesTier = tierFilter === '전체' || profile.tier === tierFilter;
-      const matchesRole = roleFilter === '전체' || profile.role === roleFilter;
-      return matchesTier && matchesRole;
-    });
-  }, [profiles, roleFilter, tierFilter]);
 
   const commentsBySchedule = useMemo(() => {
     return scheduleComments.reduce((groupedComments, comment) => {
@@ -294,6 +358,10 @@ function App() {
         PROFILE_SAVE_TIMEOUT_MS,
         '프로필 저장 시간이 초과되었습니다. Firestore 권한과 네트워크 상태를 확인해주세요.',
       );
+      await Promise.all([
+        refreshMyProfile(),
+        loadProfiles({ reset: true }),
+      ]);
       setNotice('프로필이 저장되었습니다.');
       return true;
     } catch (caughtError) {
@@ -387,6 +455,16 @@ function App() {
     setIsProfileFormOpen(false);
   };
 
+  const handleProfileSearchSubmit = (event) => {
+    event.preventDefault();
+    setProfileSearchTerm(profileSearchDraft.trim());
+  };
+
+  const handleClearProfileSearch = () => {
+    setProfileSearchDraft('');
+    setProfileSearchTerm('');
+  };
+
   const handleOpenScheduleForm = () => {
     setEditingSchedule(null);
     setIsScheduleFormOpen(true);
@@ -421,6 +499,10 @@ function App() {
 
     if (window.confirm('이 프로필을 삭제할까요?')) {
       await deleteProfile(profile.id);
+      await Promise.all([
+        refreshMyProfile(),
+        loadProfiles({ reset: true }),
+      ]);
     }
   };
 
@@ -690,6 +772,22 @@ function App() {
           {currentUser ? (
             <>
               <div className="filters">
+                <form className="profile-search-form" onSubmit={handleProfileSearchSubmit}>
+                  <input
+                    aria-label="프로필 닉네임 검색"
+                    placeholder="닉네임 검색"
+                    value={profileSearchDraft}
+                    onChange={(event) => setProfileSearchDraft(event.target.value)}
+                  />
+                  <button className="primary-button" type="submit">
+                    검색
+                  </button>
+                  {profileSearchTerm && (
+                    <button className="ghost-button" type="button" onClick={handleClearProfileSearch}>
+                      초기화
+                    </button>
+                  )}
+                </form>
                 <select value={tierFilter} onChange={(event) => setTierFilter(event.target.value)}>
                   <option value="전체">티어 전체</option>
                   {TIERS.map((tier) => (
@@ -709,10 +807,18 @@ function App() {
               </div>
               <ProfileList
                 currentUser={isApprovedUser ? currentUser : null}
-                profiles={filteredProfiles}
+                isLoading={isProfileListLoading}
+                profiles={profiles}
                 onDelete={handleDeleteProfile}
                 onEdit={handleEditProfile}
               />
+              {currentUser && hasMoreProfiles && (
+                <div className="load-more-row">
+                  <button type="button" onClick={() => loadProfiles()} disabled={isProfileListLoading}>
+                    {isProfileListLoading ? '불러오는 중...' : '더 보기'}
+                  </button>
+                </div>
+              )}
             </>
           ) : (
             <p className="empty-state">로그인 후 프로필 목록을 볼 수 있습니다.</p>

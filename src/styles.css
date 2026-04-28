@@ -451,7 +451,23 @@ textarea {
 }
 
 .filters {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 16px 0;
+}
+
+.profile-search-form {
+  display: grid;
+  gap: 8px;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.load-more-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
 }
 
 .card-list {
@@ -793,6 +809,14 @@ textarea {
 
   .comment-form {
     grid-template-columns: 1fr;
+  }
+
+  .profile-search-form {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-search-form button {
+    width: 100%;
   }
 
   .image-lightbox {

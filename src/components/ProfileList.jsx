@@ -21,8 +21,12 @@ function canManageProfile(currentUser, profile) {
   return Boolean(currentUser?.isAdmin || currentUser?.id === profile.ownerId);
 }
 
-export function ProfileList({ currentUser, profiles, onEdit, onDelete }) {
+export function ProfileList({ currentUser, isLoading = false, profiles, onEdit, onDelete }) {
   const [expandedImage, setExpandedImage] = useState(null);
+
+  if (isLoading && profiles.length === 0) {
+    return <p className="empty-state">프로필을 불러오는 중입니다.</p>;
+  }
 
   if (profiles.length === 0) {
     return <p className="empty-state">조건에 맞는 친구 프로필이 아직 없습니다.</p>;
