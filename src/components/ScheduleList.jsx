@@ -1,20 +1,59 @@
 import { useEffect, useState } from 'react';
 import { isScheduleClosed } from '../utils/scheduleStatus';
 
+function formatCommentTime(createdAt) {
+  if (!createdAt?.toDate) {
+    return '';
+  }
+
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(createdAt.toDate());
+}
+
 function canManageItem(currentUser, item) {
   return Boolean(currentUser?.isAdmin || currentUser?.id === item.ownerId);
 }
 
 export function ScheduleList({
+  commentsBySchedule = {},
   currentUser,
   participantProfiles = {},
   schedules,
+  onAddComment,
+  onDeleteComment,
   onEdit,
   onDelete,
   onJoin,
   onLeave,
 }) {
+  const [commentDrafts, setCommentDrafts] = useState({});
   const [now, setNow] = useState(() => new Date());
+
+  const handleCommentChange = (scheduleId, value) => {
+    setCommentDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [scheduleId]: value,
+    }));
+  };
+
+  const handleCommentSubmit = async (event, schedule) => {
+    event.preventDefault();
+
+    if (!onAddComment) {
+      return;
+    }
+
+    const draft = commentDrafts[schedule.id] ?? '';
+    const isSaved = await onAddComment(schedule, draft);
+
+    if (isSaved) {
+      handleCommentChange(schedule.id, '');
+    }
+  };
 
   useEffect(() => {
     const timerId = window.setInterval(() => {
@@ -54,6 +93,7 @@ export function ScheduleList({
         const isJoined = Boolean(
           currentUser && (participantIds.includes(currentUser.id) || participants.includes(currentUser.nickname)),
         );
+        const comments = commentsBySchedule[schedule.id] ?? [];
 
         return (
           <article className={`schedule-card ${isClosed ? 'closed-schedule' : ''}`} key={schedule.id}>
@@ -120,6 +160,58 @@ export function ScheduleList({
                     삭제
                   </button>
                 </>
+              )}
+            </div>
+            <div className="schedule-comments">
+              <div className="comments-heading">
+                <strong>댓글</strong>
+                <span>{comments.length}개</span>
+              </div>
+              {comments.length > 0 ? (
+                <div className="comment-list">
+                  {comments.map((comment) => {
+                    const canDeleteComment = Boolean(currentUser?.isAdmin || currentUser?.id === comment.ownerId);
+                    const commentTime = formatCommentTime(comment.createdAt);
+
+                    return (
+                      <div className="comment-item" key={comment.id}>
+                        <div>
+                          <p>
+                            <strong>{comment.ownerNickname || '알 수 없음'}</strong>
+                            {commentTime && <span>{commentTime}</span>}
+                          </p>
+                          <p>{comment.message}</p>
+                        </div>
+                        {canDeleteComment && (
+                          <button
+                            className="comment-delete-button"
+                            type="button"
+                            onClick={() => onDeleteComment?.(comment)}
+                          >
+                            삭제
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="comment-empty">아직 댓글이 없습니다.</p>
+              )}
+              {currentUser ? (
+                <form className="comment-form" onSubmit={(event) => handleCommentSubmit(event, schedule)}>
+                  <input
+                    maxLength={160}
+                    placeholder="참여 가능해요, 몇 시부터 가능, 마이크 가능?"
+                    value={commentDrafts[schedule.id] ?? ''}
+                    onChange={(event) => handleCommentChange(schedule.id, event.target.value)}
+                  />
+                  <button type="submit" disabled={!commentDrafts[schedule.id]?.trim()}>
+                    보내기
+                  </button>
+                </form>
+              ) : (
+                <p className="comment-empty">로그인 후 댓글을 남길 수 있습니다.</p>
               )}
             </div>
           </article>

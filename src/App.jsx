@@ -11,10 +11,12 @@ import { isFirebaseConfigured, missingFirebaseConfigKeys } from './firebase';
 import {
   createProfile,
   createSchedule,
+  createScheduleComment,
   changeCurrentUserNickname,
   changeCurrentUserPin,
   approveUser,
   createChatMessage,
+  deleteScheduleComment,
   deleteProfile,
   deleteSchedule,
   fetchOlderChatMessages,
@@ -32,6 +34,7 @@ import {
   subscribeChatMessages,
   subscribeLatestContentDates,
   subscribeProfilesByOwnerIds,
+  subscribeScheduleCommentsByScheduleIds,
   subscribeSchedules,
   subscribeUsers,
   updateProfile,
@@ -93,6 +96,7 @@ function App() {
   const [profiles, setProfiles] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [pastSchedules, setPastSchedules] = useState([]);
+  const [scheduleComments, setScheduleComments] = useState([]);
   const [pastScheduleCursor, setPastScheduleCursor] = useState(null);
   const [hasMorePastSchedules, setHasMorePastSchedules] = useState(false);
   const [isPastSchedulesOpen, setIsPastSchedulesOpen] = useState(false);
@@ -211,6 +215,23 @@ function App() {
     return [...ownerIds].sort();
   }, [pastSchedules, schedules]);
 
+  const visibleScheduleIds = useMemo(() => (
+    [...schedules, ...pastSchedules].map((schedule) => schedule.id).filter(Boolean).sort()
+  ), [pastSchedules, schedules]);
+
+  const commentsBySchedule = useMemo(() => (
+    scheduleComments.reduce((groupedComments, comment) => {
+      if (!comment.scheduleId) {
+        return groupedComments;
+      }
+
+      return {
+        ...groupedComments,
+        [comment.scheduleId]: [...(groupedComments[comment.scheduleId] ?? []), comment],
+      };
+    }, {})
+  ), [scheduleComments]);
+
   useEffect(() => {
     if (!isFirebaseConfigured || !currentUser || scheduleParticipantOwnerIds.length === 0) {
       setScheduleParticipantProfiles({});
@@ -228,6 +249,24 @@ function App() {
       return undefined;
     }
   }, [currentUser, scheduleParticipantOwnerIds]);
+
+  useEffect(() => {
+    if (!isFirebaseConfigured || !currentUser || visibleScheduleIds.length === 0) {
+      setScheduleComments([]);
+      return undefined;
+    }
+
+    const handleSubscriptionError = (caughtError) => {
+      setError(`Firestore read error: ${caughtError.message}`);
+    };
+
+    try {
+      return subscribeScheduleCommentsByScheduleIds(visibleScheduleIds, setScheduleComments, handleSubscriptionError);
+    } catch (caughtError) {
+      setError(caughtError.message);
+      return undefined;
+    }
+  }, [currentUser, visibleScheduleIds]);
 
   const loadProfiles = useCallback(async ({ reset = false } = {}) => {
     if (!isFirebaseConfigured || !currentUser) {
@@ -712,6 +751,41 @@ function App() {
     }
   };
 
+  const handleAddScheduleComment = async (schedule, message) => {
+    setError('');
+
+    if (!requireLogin()) {
+      return false;
+    }
+
+    try {
+      await createScheduleComment(schedule.id, message, currentUser);
+      return true;
+    } catch (caughtError) {
+      setError(caughtError.message);
+      return false;
+    }
+  };
+
+  const handleDeleteScheduleComment = async (comment) => {
+    setError('');
+
+    if (!requireLogin()) {
+      return;
+    }
+
+    if (comment.ownerId !== currentUser.id && !currentUser.isAdmin) {
+      setError('본인이 작성한 댓글만 삭제할 수 있습니다.');
+      return;
+    }
+
+    try {
+      await deleteScheduleComment(comment);
+    } catch (caughtError) {
+      setError(caughtError.message);
+    }
+  };
+
   const handleAddChatMessage = async (message) => {
     setError('');
 
@@ -1063,9 +1137,12 @@ function App() {
           {currentUser ? (
             <>
               <ScheduleList
+                commentsBySchedule={commentsBySchedule}
                 currentUser={isApprovedUser ? currentUser : null}
                 participantProfiles={scheduleParticipantProfiles}
                 schedules={schedules}
+                onAddComment={handleAddScheduleComment}
+                onDeleteComment={handleDeleteScheduleComment}
                 onDelete={handleDeleteSchedule}
                 onEdit={handleEditSchedule}
                 onJoin={handleJoinSchedule}
@@ -1080,9 +1157,12 @@ function App() {
                 <div className="past-schedule-section">
                   <h3>이전 일정</h3>
                   <ScheduleList
+                    commentsBySchedule={commentsBySchedule}
                     currentUser={isApprovedUser ? currentUser : null}
                     participantProfiles={scheduleParticipantProfiles}
                     schedules={pastSchedules}
+                    onAddComment={handleAddScheduleComment}
+                    onDeleteComment={handleDeleteScheduleComment}
                     onDelete={handleDeleteSchedule}
                     onEdit={handleEditSchedule}
                     onJoin={handleJoinSchedule}
