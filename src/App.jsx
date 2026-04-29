@@ -484,7 +484,7 @@ function App() {
 
     try {
       if (editingSchedule) {
-        if (isScheduleClosed(editingSchedule)) {
+        if (isScheduleClosed(editingSchedule) && !currentUser.isAdmin) {
           setError('마감된 일정은 수정할 수 없습니다.');
           return;
         }
@@ -572,7 +572,7 @@ function App() {
   };
 
   const handleEditSchedule = (schedule) => {
-    if (isScheduleClosed(schedule)) {
+    if (isScheduleClosed(schedule) && !currentUser?.isAdmin) {
       setError('마감된 일정은 수정할 수 없습니다.');
       return;
     }
@@ -619,7 +619,7 @@ function App() {
       return;
     }
 
-    if (isScheduleClosed(schedule)) {
+    if (isScheduleClosed(schedule) && !currentUser.isAdmin) {
       setError('마감된 일정은 삭제할 수 없습니다.');
       return;
     }

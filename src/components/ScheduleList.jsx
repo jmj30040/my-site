@@ -36,6 +36,7 @@ export function ScheduleList({
         const participantIds = schedule.participantIds ?? [];
         const canManage = canManageItem(currentUser, schedule);
         const isClosed = isScheduleClosed(schedule, now);
+        const canEditClosedSchedule = Boolean(currentUser?.isAdmin);
         const isJoined = Boolean(
           currentUser && (participantIds.includes(currentUser.id) || participants.includes(currentUser.nickname)),
         );
@@ -71,10 +72,10 @@ export function ScheduleList({
                 ))}
               {canManage && (
                 <>
-                  <button disabled={isClosed} onClick={() => onEdit(schedule)}>
+                  <button disabled={isClosed && !canEditClosedSchedule} onClick={() => onEdit(schedule)}>
                     수정
                   </button>
-                  <button className="danger-button" disabled={isClosed} onClick={() => onDelete(schedule)}>
+                  <button className="danger-button" disabled={isClosed && !canEditClosedSchedule} onClick={() => onDelete(schedule)}>
                     삭제
                   </button>
                 </>
