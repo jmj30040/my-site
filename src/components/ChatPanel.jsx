@@ -27,19 +27,30 @@ export function ChatPanel({
   const messageListRef = useRef(null);
   const previousLastMessageIdRef = useRef('');
   const hasScrolledToInitialLatestMessageRef = useRef(false);
+  const programmaticScrollUntilRef = useRef(0);
   const shouldScrollToLatestOnActiveRef = useRef(true);
   const wasActiveRef = useRef(isActive);
   const shouldStickToBottomRef = useRef(true);
   const currentUserId = currentUser?.id ?? '';
 
+  const markProgrammaticScroll = () => {
+    programmaticScrollUntilRef.current = Date.now() + 300;
+  };
+
+  const scrollMessageListToBottom = () => {
+    if (!messageListRef.current) {
+      return;
+    }
+
+    markProgrammaticScroll();
+    messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+  };
+
   const scrollToBottom = () => {
+    markProgrammaticScroll();
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        if (!messageListRef.current) {
-          return;
-        }
-
-        messageListRef.current.scrollTop = messageListRef.current.scrollHeight - messageListRef.current.clientHeight;
+        scrollMessageListToBottom();
       });
     });
   };
@@ -62,9 +73,7 @@ export function ChatPanel({
       return;
     }
 
-    if (messageListRef.current) {
-      messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
-    }
+    scrollMessageListToBottom();
     hasScrolledToInitialLatestMessageRef.current = true;
     shouldScrollToLatestOnActiveRef.current = false;
   }, [isActive, messages.length]);
@@ -103,6 +112,10 @@ export function ChatPanel({
 
     const distanceFromBottom = messageList.scrollHeight - messageList.scrollTop - messageList.clientHeight;
     shouldStickToBottomRef.current = distanceFromBottom < 80;
+
+    if (Date.now() < programmaticScrollUntilRef.current) {
+      return;
+    }
 
     if (messageList.scrollTop <= 24 && hasMoreMessages && !isLoadingOlderMessages) {
       const previousScrollHeight = messageList.scrollHeight;
