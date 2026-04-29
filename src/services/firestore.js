@@ -802,7 +802,6 @@ export function subscribeScheduleCommentsByScheduleIds(scheduleIds, callback, on
     const commentsQuery = query(
       getCollection('scheduleComments'),
       where('scheduleId', '==', scheduleId),
-      orderBy('createdAt', 'desc'),
       limit(CHAT_MESSAGE_LIMIT),
     );
 
@@ -812,7 +811,11 @@ export function subscribeScheduleCommentsByScheduleIds(scheduleIds, callback, on
         commentGroups.set(scheduleId, snapshot.docs.map((commentDoc) => ({
           id: commentDoc.id,
           ...commentDoc.data(),
-        })).reverse());
+        })).sort((firstComment, secondComment) => {
+          const firstCreatedAt = firstComment.createdAt?.toMillis?.() ?? 0;
+          const secondCreatedAt = secondComment.createdAt?.toMillis?.() ?? 0;
+          return firstCreatedAt - secondCreatedAt;
+        }));
         callback([...commentGroups.values()].flat().sort((firstComment, secondComment) => {
           const firstCreatedAt = firstComment.createdAt?.toMillis?.() ?? 0;
           const secondCreatedAt = secondComment.createdAt?.toMillis?.() ?? 0;
