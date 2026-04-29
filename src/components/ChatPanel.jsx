@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 function formatMessageTime(createdAt) {
   if (!createdAt?.toDate) {
@@ -25,7 +25,9 @@ export function ChatPanel({
   const inputRef = useRef(null);
   const messageListRef = useRef(null);
   const previousLastMessageIdRef = useRef('');
+  const hasScrolledToInitialLatestMessageRef = useRef(false);
   const shouldStickToBottomRef = useRef(true);
+  const currentUserId = currentUser?.id ?? '';
 
   const scrollToBottom = () => {
     window.requestAnimationFrame(() => {
@@ -39,6 +41,25 @@ export function ChatPanel({
     });
   };
 
+  useLayoutEffect(() => {
+    if (hasScrolledToInitialLatestMessageRef.current || messages.length === 0) {
+      return;
+    }
+
+    if (messageListRef.current) {
+      messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+    }
+    hasScrolledToInitialLatestMessageRef.current = true;
+  }, [messages.length]);
+
+  useEffect(() => {
+    if (messages.length === 0) {
+      hasScrolledToInitialLatestMessageRef.current = false;
+      previousLastMessageIdRef.current = '';
+      shouldStickToBottomRef.current = true;
+    }
+  }, [messages.length]);
+
   useEffect(() => {
     const lastMessage = messages[messages.length - 1];
     const lastMessageId = lastMessage?.id ?? '';
@@ -48,12 +69,12 @@ export function ChatPanel({
       return;
     }
 
-    if (!previousLastMessageIdRef.current || lastMessage.ownerId === currentUser.id || shouldStickToBottomRef.current) {
+    if (!previousLastMessageIdRef.current || lastMessage.ownerId === currentUserId || shouldStickToBottomRef.current) {
       scrollToBottom();
     }
 
     previousLastMessageIdRef.current = lastMessageId;
-  }, [currentUser.id, messages]);
+  }, [currentUserId, messages]);
 
   const handleMessageListScroll = () => {
     const messageList = messageListRef.current;
@@ -118,7 +139,7 @@ export function ChatPanel({
           {messages.map((message) => {
             const messageTime = formatMessageTime(message.createdAt);
 
-            const isMine = currentUser.id === message.ownerId;
+            const isMine = currentUserId === message.ownerId;
 
             return (
               <div
