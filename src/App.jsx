@@ -892,6 +892,7 @@ function App() {
           </div>
           {currentUser ? (
             <ChatPanel
+              isActive={activeSection === 'chat'}
               currentUser={isApprovedUser ? currentUser : null}
               hasMoreMessages={hasMoreChatMessages}
               isLoadingOlderMessages={isLoadingOlderChatMessages}

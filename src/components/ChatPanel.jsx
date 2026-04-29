@@ -16,6 +16,7 @@ function formatMessageTime(createdAt) {
 export function ChatPanel({
   currentUser,
   hasMoreMessages = false,
+  isActive = true,
   isLoadingOlderMessages = false,
   messages,
   onAddMessage,
@@ -26,6 +27,8 @@ export function ChatPanel({
   const messageListRef = useRef(null);
   const previousLastMessageIdRef = useRef('');
   const hasScrolledToInitialLatestMessageRef = useRef(false);
+  const shouldScrollToLatestOnActiveRef = useRef(true);
+  const wasActiveRef = useRef(isActive);
   const shouldStickToBottomRef = useRef(true);
   const currentUserId = currentUser?.id ?? '';
 
@@ -42,7 +45,20 @@ export function ChatPanel({
   };
 
   useLayoutEffect(() => {
-    if (hasScrolledToInitialLatestMessageRef.current || messages.length === 0) {
+    if (isActive && !wasActiveRef.current) {
+      shouldScrollToLatestOnActiveRef.current = true;
+      shouldStickToBottomRef.current = true;
+    }
+
+    wasActiveRef.current = isActive;
+  }, [isActive]);
+
+  useLayoutEffect(() => {
+    if (
+      !isActive ||
+      messages.length === 0 ||
+      (hasScrolledToInitialLatestMessageRef.current && !shouldScrollToLatestOnActiveRef.current)
+    ) {
       return;
     }
 
@@ -50,12 +66,14 @@ export function ChatPanel({
       messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
     }
     hasScrolledToInitialLatestMessageRef.current = true;
-  }, [messages.length]);
+    shouldScrollToLatestOnActiveRef.current = false;
+  }, [isActive, messages.length]);
 
   useEffect(() => {
     if (messages.length === 0) {
       hasScrolledToInitialLatestMessageRef.current = false;
       previousLastMessageIdRef.current = '';
+      shouldScrollToLatestOnActiveRef.current = true;
       shouldStickToBottomRef.current = true;
     }
   }, [messages.length]);
