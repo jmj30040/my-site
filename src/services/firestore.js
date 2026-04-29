@@ -682,6 +682,44 @@ export function subscribeChatMessages(callback, onError) {
   );
 }
 
+function subscribeLatestCreatedAt(collectionName, callback, onError) {
+  const latestQuery = query(
+    getCollection(collectionName),
+    orderBy('createdAt', 'desc'),
+    limit(1),
+  );
+
+  return onSnapshot(
+    latestQuery,
+    (snapshot) => {
+      callback(snapshot.docs[0]?.data().createdAt ?? null);
+    },
+    onError,
+  );
+}
+
+export function subscribeLatestContentDates(callback, onError) {
+  const latestContentDates = {
+    chat: null,
+    profiles: null,
+    schedules: null,
+  };
+  const subscriptions = [
+    ['schedules', 'schedules'],
+    ['profiles', 'profiles'],
+    ['chat', 'chatMessages'],
+  ].map(([key, collectionName]) => (
+    subscribeLatestCreatedAt(collectionName, (createdAt) => {
+      latestContentDates[key] = createdAt;
+      callback({ ...latestContentDates });
+    }, onError)
+  ));
+
+  return () => {
+    subscriptions.forEach((unsubscribe) => unsubscribe());
+  };
+}
+
 export async function fetchOlderChatMessages(oldestMessage) {
   if (!oldestMessage?.createdAt) {
     return {

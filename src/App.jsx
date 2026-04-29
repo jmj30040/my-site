@@ -30,6 +30,7 @@ import {
   signUpWithNickname,
   subscribeAuthUser,
   subscribeChatMessages,
+  subscribeLatestContentDates,
   subscribeSchedules,
   subscribeUsers,
   updateProfile,
@@ -40,6 +41,38 @@ import { isScheduleClosed } from './utils/scheduleStatus';
 
 const PROFILE_SAVE_TIMEOUT_MS = 45000;
 const PROFILE_PAGE_SIZE = 5;
+
+function toDate(value) {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value;
+  }
+
+  if (typeof value.toDate === 'function') {
+    return value.toDate();
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isToday(value) {
+  const date = toDate(value);
+
+  if (!date) {
+    return false;
+  }
+
+  const now = new Date();
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  );
+}
 
 function withTimeout(promise, timeoutMs, timeoutMessage) {
   let timeoutId;
@@ -67,6 +100,7 @@ function App() {
   const [olderChatMessages, setOlderChatMessages] = useState([]);
   const [hasMoreChatMessages, setHasMoreChatMessages] = useState(false);
   const [isLoadingOlderChatMessages, setIsLoadingOlderChatMessages] = useState(false);
+  const [latestContentDates, setLatestContentDates] = useState({ chat: null, profiles: null, schedules: null });
   const [users, setUsers] = useState([]);
   const [myProfile, setMyProfile] = useState(null);
   const [editingProfile, setEditingProfile] = useState(null);
@@ -143,6 +177,24 @@ function App() {
       unsubscribeSchedules();
       unsubscribeUsers();
     };
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!isFirebaseConfigured || !currentUser) {
+      setLatestContentDates({ chat: null, profiles: null, schedules: null });
+      return undefined;
+    }
+
+    const handleSubscriptionError = (caughtError) => {
+      setError(`Firestore read error: ${caughtError.message}`);
+    };
+
+    try {
+      return subscribeLatestContentDates(setLatestContentDates, handleSubscriptionError);
+    } catch (caughtError) {
+      setError(caughtError.message);
+      return undefined;
+    }
   }, [currentUser]);
 
   const loadProfiles = useCallback(async ({ reset = false } = {}) => {
@@ -250,6 +302,11 @@ function App() {
   }, [activeSection, currentUser]);
 
   const isApprovedUser = Boolean(currentUser && (currentUser.status === 'approved' || currentUser.isAdmin));
+  const newContentBySection = {
+    chat: isToday(latestContentDates.chat),
+    profiles: isToday(latestContentDates.profiles),
+    schedules: isToday(latestContentDates.schedules),
+  };
 
   const requireLogin = () => {
     if (isApprovedUser) {
@@ -780,7 +837,8 @@ function App() {
           type="button"
           onClick={() => setActiveSection('schedules')}
         >
-          일정
+          <span>일정</span>
+          {newContentBySection.schedules && <span className="tab-new-badge">NEW</span>}
         </button>
         <button
           aria-pressed={activeSection === 'profiles'}
@@ -788,7 +846,8 @@ function App() {
           type="button"
           onClick={() => setActiveSection('profiles')}
         >
-          티어표
+          <span>티어표</span>
+          {newContentBySection.profiles && <span className="tab-new-badge">NEW</span>}
         </button>
         <button
           aria-pressed={activeSection === 'chat'}
@@ -796,7 +855,8 @@ function App() {
           type="button"
           onClick={() => setActiveSection('chat')}
         >
-          채팅
+          <span>채팅</span>
+          {newContentBySection.chat && <span className="tab-new-badge">NEW</span>}
         </button>
         {currentUser?.isAdmin && (
           <button

@@ -183,11 +183,32 @@ textarea {
   background: transparent;
   min-height: 40px;
   min-width: 150px;
+  position: relative;
 }
 
 .section-tabs .active-tab {
   background: #fff;
   box-shadow: 0 1px 4px rgb(23 32 51 / 10%);
+}
+
+.tab-new-badge {
+  align-items: center;
+  background: #f04f45;
+  border: 1px solid #fff;
+  border-radius: 999px;
+  box-shadow: 0 2px 5px rgb(23 32 51 / 14%);
+  color: #fff;
+  display: inline-flex;
+  font-size: 9px;
+  font-weight: 800;
+  height: 16px;
+  justify-content: center;
+  line-height: 1;
+  min-width: 28px;
+  padding: 0 5px;
+  position: absolute;
+  right: 7px;
+  top: 4px;
 }
 
 .auth-form {
