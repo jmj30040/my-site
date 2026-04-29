@@ -21,8 +21,8 @@ export function AuthPanel({
 }) {
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState(emptyAuthForm);
-  const [isNicknameFormOpen, setIsNicknameFormOpen] = useState(false);
-  const [isPinFormOpen, setIsPinFormOpen] = useState(false);
+  const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
+  const [accountSettingsMode, setAccountSettingsMode] = useState('nickname');
   const [nicknameForm, setNicknameForm] = useState('');
   const [pinForm, setPinForm] = useState(emptyPinForm);
 
@@ -55,7 +55,7 @@ export function AuthPanel({
 
     if (isSuccess) {
       setPinForm(emptyPinForm);
-      setIsPinFormOpen(false);
+      setIsAccountSettingsOpen(false);
     }
   };
 
@@ -65,8 +65,16 @@ export function AuthPanel({
 
     if (isSuccess) {
       setNicknameForm('');
-      setIsNicknameFormOpen(false);
+      setIsAccountSettingsOpen(false);
     }
+  };
+
+  const openAccountSettings = () => {
+    const nextIsOpen = !isAccountSettingsOpen;
+    setIsAccountSettingsOpen(nextIsOpen);
+    setAccountSettingsMode('nickname');
+    setNicknameForm(currentUser?.nickname ?? '');
+    setPinForm(emptyPinForm);
   };
 
   if (currentUser) {
@@ -87,76 +95,83 @@ export function AuthPanel({
         {needsApproval && <p className="auth-help">관리자가 승인한 계정만 서비스를 이용할 수 있습니다.</p>}
         {!needsApproval && (
           <>
-            <button
-              className="ghost-button"
-              onClick={() => {
-                setNicknameForm(currentUser.nickname ?? '');
-                setIsNicknameFormOpen((isOpen) => !isOpen);
-                setIsPinFormOpen(false);
-              }}
-              type="button"
-            >
-              닉네임 변경
+            <button className="ghost-button" onClick={openAccountSettings} type="button">
+              개인정보변경
             </button>
-            {isNicknameFormOpen && (
-              <form className="auth-form" onSubmit={handleNicknameSubmit}>
-                <label>
-                  새 닉네임
-                  <input
-                    name="nickname"
-                    value={nicknameForm}
-                    onChange={(event) => setNicknameForm(event.target.value)}
-                    placeholder="새 닉네임"
-                    required
-                  />
-                </label>
-                <button className="primary-button" disabled={isAuthLoading} type="submit">
-                  {isAuthLoading ? '변경 중' : '닉네임 저장'}
-                </button>
-              </form>
-            )}
-            <button
-              className="ghost-button"
-              onClick={() => {
-                setIsPinFormOpen((isOpen) => !isOpen);
-                setIsNicknameFormOpen(false);
-              }}
-              type="button"
-            >
-              PIN 변경
-            </button>
-            {isPinFormOpen && (
-              <form className="auth-form pin-change-form" onSubmit={handlePinSubmit}>
-                <label>
-                  현재 PIN
-                  <input
-                    inputMode="numeric"
-                    name="currentPin"
-                    pattern="\d{6}"
-                    value={pinForm.currentPin}
-                    onChange={handlePinFormChange}
-                    placeholder="현재 PIN"
-                    required
-                    type="password"
-                  />
-                </label>
-                <label>
-                  새 PIN
-                  <input
-                    inputMode="numeric"
-                    name="newPin"
-                    pattern="\d{6}"
-                    value={pinForm.newPin}
-                    onChange={handlePinFormChange}
-                    placeholder="새 6자리 PIN"
-                    required
-                    type="password"
-                  />
-                </label>
-                <button className="primary-button" disabled={isAuthLoading} type="submit">
-                  {isAuthLoading ? '변경 중' : 'PIN 저장'}
-                </button>
-              </form>
+            {isAccountSettingsOpen && (
+              <div className="account-settings-panel">
+                <div className="auth-tabs account-settings-tabs">
+                  <button
+                    className={accountSettingsMode === 'nickname' ? 'active-tab' : ''}
+                    onClick={() => {
+                      setAccountSettingsMode('nickname');
+                      setNicknameForm(currentUser.nickname ?? '');
+                    }}
+                    type="button"
+                  >
+                    닉네임 변경
+                  </button>
+                  <button
+                    className={accountSettingsMode === 'pin' ? 'active-tab' : ''}
+                    onClick={() => {
+                      setAccountSettingsMode('pin');
+                      setPinForm(emptyPinForm);
+                    }}
+                    type="button"
+                  >
+                    PIN 변경
+                  </button>
+                </div>
+                {accountSettingsMode === 'nickname' ? (
+                  <form className="auth-form" onSubmit={handleNicknameSubmit}>
+                    <label>
+                      새 닉네임
+                      <input
+                        name="nickname"
+                        value={nicknameForm}
+                        onChange={(event) => setNicknameForm(event.target.value)}
+                        placeholder="새 닉네임"
+                        required
+                      />
+                    </label>
+                    <button className="primary-button" disabled={isAuthLoading} type="submit">
+                      {isAuthLoading ? '변경 중' : '닉네임 저장'}
+                    </button>
+                  </form>
+                ) : (
+                  <form className="auth-form pin-change-form" onSubmit={handlePinSubmit}>
+                    <label>
+                      현재 PIN
+                      <input
+                        inputMode="numeric"
+                        name="currentPin"
+                        pattern="\d{6}"
+                        value={pinForm.currentPin}
+                        onChange={handlePinFormChange}
+                        placeholder="현재 PIN"
+                        required
+                        type="password"
+                      />
+                    </label>
+                    <label>
+                      새 PIN
+                      <input
+                        inputMode="numeric"
+                        name="newPin"
+                        pattern="\d{6}"
+                        value={pinForm.newPin}
+                        onChange={handlePinFormChange}
+                        placeholder="새 6자리 PIN"
+                        required
+                        type="password"
+                      />
+                    </label>
+                    <button className="primary-button" disabled={isAuthLoading} type="submit">
+                      {isAuthLoading ? '변경 중' : 'PIN 저장'}
+                    </button>
+                  </form>
+                )}
+              </div>
             )}
           </>
         )}
