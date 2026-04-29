@@ -25,13 +25,10 @@ export function ChatPanel({
   const [draft, setDraft] = useState('');
   const inputRef = useRef(null);
   const messageListRef = useRef(null);
-  const previousLastMessageIdRef = useRef('');
-  const hasScrolledToInitialLatestMessageRef = useRef(false);
   const programmaticScrollUntilRef = useRef(0);
-  const shouldScrollToLatestOnActiveRef = useRef(true);
-  const wasActiveRef = useRef(isActive);
   const shouldStickToBottomRef = useRef(true);
   const currentUserId = currentUser?.id ?? '';
+  const lastMessageId = messages[messages.length - 1]?.id ?? '';
 
   const markProgrammaticScroll = () => {
     programmaticScrollUntilRef.current = Date.now() + 300;
@@ -46,62 +43,36 @@ export function ChatPanel({
     messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
   };
 
-  const scrollToBottom = () => {
+  const scrollToBottom = ({ immediate = false } = {}) => {
     markProgrammaticScroll();
+
+    if (immediate) {
+      scrollMessageListToBottom();
+    }
+
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
         scrollMessageListToBottom();
       });
     });
+
+    window.setTimeout(scrollMessageListToBottom, 80);
   };
 
   useLayoutEffect(() => {
-    if (isActive && !wasActiveRef.current) {
-      shouldScrollToLatestOnActiveRef.current = true;
-      shouldStickToBottomRef.current = true;
-    }
-
-    wasActiveRef.current = isActive;
-  }, [isActive]);
-
-  useLayoutEffect(() => {
-    if (
-      !isActive ||
-      messages.length === 0 ||
-      (hasScrolledToInitialLatestMessageRef.current && !shouldScrollToLatestOnActiveRef.current)
-    ) {
+    if (!isActive || !lastMessageId) {
       return;
     }
 
-    scrollMessageListToBottom();
-    hasScrolledToInitialLatestMessageRef.current = true;
-    shouldScrollToLatestOnActiveRef.current = false;
-  }, [isActive, messages.length]);
+    shouldStickToBottomRef.current = true;
+    scrollToBottom({ immediate: true });
+  }, [isActive, lastMessageId]);
 
   useEffect(() => {
     if (messages.length === 0) {
-      hasScrolledToInitialLatestMessageRef.current = false;
-      previousLastMessageIdRef.current = '';
-      shouldScrollToLatestOnActiveRef.current = true;
       shouldStickToBottomRef.current = true;
     }
   }, [messages.length]);
-
-  useEffect(() => {
-    const lastMessage = messages[messages.length - 1];
-    const lastMessageId = lastMessage?.id ?? '';
-    const isNewLastMessage = lastMessageId && lastMessageId !== previousLastMessageIdRef.current;
-
-    if (!isNewLastMessage) {
-      return;
-    }
-
-    if (!previousLastMessageIdRef.current || lastMessage.ownerId === currentUserId || shouldStickToBottomRef.current) {
-      scrollToBottom();
-    }
-
-    previousLastMessageIdRef.current = lastMessageId;
-  }, [currentUserId, messages]);
 
   const handleMessageListScroll = () => {
     const messageList = messageListRef.current;
