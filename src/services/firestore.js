@@ -973,6 +973,12 @@ export function joinSchedule(schedule, currentUser) {
     return Promise.resolve();
   }
 
+  const capacity = Number(schedule.capacity);
+
+  if (Number.isFinite(capacity) && capacity > 0 && participants.length >= capacity) {
+    throw new Error('모집 인원이 가득 찬 일정입니다.');
+  }
+
   return updateSchedule(schedule.id, {
     participants: [...participants, currentUser.nickname],
     participantIds: [...participantIds, currentUser.id],

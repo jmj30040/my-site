@@ -48,6 +48,9 @@ export function ScheduleList({
         const canManage = canManageItem(currentUser, schedule);
         const isClosed = isScheduleClosed(schedule, now);
         const canEditClosedSchedule = Boolean(currentUser?.isAdmin);
+        const capacity = Number(schedule.capacity);
+        const hasCapacityLimit = Number.isFinite(capacity) && capacity > 0;
+        const isFull = hasCapacityLimit && participants.length >= capacity;
         const isJoined = Boolean(
           currentUser && (participantIds.includes(currentUser.id) || participants.includes(currentUser.nickname)),
         );
@@ -64,7 +67,10 @@ export function ScheduleList({
               </div>
               <div className="schedule-badges">
                 {isClosed && <span className="closed-badge">마감</span>}
-                <span className="count-badge">{participants.length}명</span>
+                {isFull && <span className="closed-badge">모집 완료</span>}
+                <span className="count-badge">
+                  {hasCapacityLimit ? `${participants.length}/${capacity}명` : `${participants.length}명`}
+                </span>
               </div>
             </div>
             <p className="bio">{schedule.memo || '메모가 없습니다.'}</p>
@@ -101,8 +107,8 @@ export function ScheduleList({
                     참여 취소
                   </button>
                 ) : (
-                  <button className="primary-button" disabled={isClosed} onClick={() => onJoin(schedule)}>
-                    참여하기
+                  <button className="primary-button" disabled={isClosed || isFull} onClick={() => onJoin(schedule)}>
+                    {isFull ? '모집 완료' : '참여하기'}
                   </button>
                 ))}
               {canManage && (

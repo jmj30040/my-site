@@ -515,6 +515,19 @@ function App() {
     }
 
     try {
+      const scheduleCapacity = Number(schedule.capacity);
+      const currentParticipantCount = editingSchedule?.participants?.length ?? 0;
+
+      if (
+        editingSchedule &&
+        Number.isFinite(scheduleCapacity) &&
+        scheduleCapacity > 0 &&
+        scheduleCapacity < currentParticipantCount
+      ) {
+        setError(`모집 인원은 현재 참여자 수(${currentParticipantCount}명)보다 적게 설정할 수 없습니다.`);
+        return;
+      }
+
       if (editingSchedule) {
         if (isScheduleClosed(editingSchedule) && !currentUser.isAdmin) {
           setError('마감된 일정은 수정할 수 없습니다.');

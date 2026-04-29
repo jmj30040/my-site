@@ -5,6 +5,7 @@ const emptySchedule = {
   date: '',
   startTime: '',
   endTime: '',
+  capacity: '',
   memo: '',
 };
 
@@ -15,6 +16,7 @@ export function ScheduleForm({ initialSchedule, onSubmit }) {
         date: initialSchedule.date ?? '',
         startTime: initialSchedule.startTime ?? '',
         endTime: initialSchedule.endTime ?? '',
+        capacity: initialSchedule.capacity ?? '',
         memo: initialSchedule.memo ?? '',
       }
     : emptySchedule;
@@ -27,8 +29,11 @@ export function ScheduleForm({ initialSchedule, onSubmit }) {
 
   const handleSubmit = (event) => {
     event.preventDefault();
+    const capacity = Number.parseInt(form.capacity, 10);
+
     onSubmit({
       ...form,
+      capacity: Number.isFinite(capacity) && capacity > 0 ? capacity : null,
       participants: initialSchedule?.participants ?? [],
       participantIds: initialSchedule?.participantIds ?? [],
     });
@@ -55,6 +60,17 @@ export function ScheduleForm({ initialSchedule, onSubmit }) {
       <label>
         예상 종료
         <input name="endTime" type="time" value={form.endTime} onChange={handleChange} />
+      </label>
+      <label>
+        모집 인원
+        <input
+          min="1"
+          name="capacity"
+          type="number"
+          value={form.capacity}
+          onChange={handleChange}
+          placeholder="예: 5"
+        />
       </label>
       <label className="wide">
         메모
