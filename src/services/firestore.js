@@ -550,6 +550,50 @@ export async function fetchProfileByOwnerId(ownerId) {
     : null;
 }
 
+export function subscribeProfilesByOwnerIds(ownerIds, callback, onError) {
+  const uniqueOwnerIds = [...new Set(ownerIds.filter(Boolean))];
+
+  if (uniqueOwnerIds.length === 0) {
+    callback({});
+    return () => {};
+  }
+
+  const profileGroups = new Map();
+  const chunks = [];
+
+  for (let index = 0; index < uniqueOwnerIds.length; index += 10) {
+    chunks.push(uniqueOwnerIds.slice(index, index + 10));
+  }
+
+  const unsubscribes = chunks.map((ownerIdChunk, chunkIndex) => (
+    onSnapshot(
+      query(
+        getCollection('profiles'),
+        where('ownerId', 'in', ownerIdChunk),
+      ),
+      (snapshot) => {
+        profileGroups.set(chunkIndex, snapshot.docs.map((profileDoc) => ({
+          id: profileDoc.id,
+          ...profileDoc.data(),
+        })));
+
+        const profilesByOwnerId = {};
+
+        [...profileGroups.values()].flat().forEach((profile) => {
+          profilesByOwnerId[profile.ownerId] = profile;
+        });
+
+        callback(profilesByOwnerId);
+      },
+      onError,
+    )
+  ));
+
+  return () => {
+    unsubscribes.forEach((unsubscribe) => unsubscribe());
+  };
+}
+
 export async function uploadProfileImage(imageFile) {
   if (!imageFile?.type?.startsWith('image/')) {
     throw new Error('이미지 파일만 업로드할 수 있습니다.');

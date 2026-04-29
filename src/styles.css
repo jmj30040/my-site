@@ -735,6 +735,55 @@ textarea {
   grid-template-columns: 1fr auto;
 }
 
+.schedule-participants {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.schedule-participants > .meta {
+  margin: 0;
+}
+
+.schedule-participant-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.schedule-participant {
+  align-items: center;
+  background: #f7f9fc;
+  border: 1px solid #e3e7ef;
+  border-radius: 999px;
+  color: #3b4658;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 6px;
+  min-height: 28px;
+  padding: 3px 9px 3px 3px;
+}
+
+.schedule-participant-avatar {
+  align-items: center;
+  aspect-ratio: 1;
+  background: #eef2f8;
+  border: 1px solid #d9e0eb;
+  border-radius: 50%;
+  color: #657086;
+  display: inline-flex;
+  flex: 0 0 22px;
+  font-size: 11px;
+  font-weight: 800;
+  height: 22px;
+  justify-content: center;
+  object-fit: cover;
+  overflow: hidden;
+  width: 22px;
+}
+
 .chat-room {
   display: grid;
   gap: 12px;

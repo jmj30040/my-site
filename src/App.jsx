@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AdminUserPanel } from './components/AdminUserPanel';
 import { AuthPanel } from './components/AuthPanel';
 import { ChatPanel } from './components/ChatPanel';
@@ -31,6 +31,7 @@ import {
   subscribeAuthUser,
   subscribeChatMessages,
   subscribeLatestContentDates,
+  subscribeProfilesByOwnerIds,
   subscribeSchedules,
   subscribeUsers,
   updateProfile,
@@ -101,6 +102,7 @@ function App() {
   const [hasMoreChatMessages, setHasMoreChatMessages] = useState(false);
   const [isLoadingOlderChatMessages, setIsLoadingOlderChatMessages] = useState(false);
   const [latestContentDates, setLatestContentDates] = useState({ chat: null, profiles: null, schedules: null });
+  const [scheduleParticipantProfiles, setScheduleParticipantProfiles] = useState({});
   const [users, setUsers] = useState([]);
   const [myProfile, setMyProfile] = useState(null);
   const [editingProfile, setEditingProfile] = useState(null);
@@ -196,6 +198,36 @@ function App() {
       return undefined;
     }
   }, [currentUser]);
+
+  const scheduleParticipantOwnerIds = useMemo(() => {
+    const ownerIds = new Set();
+
+    [...schedules, ...pastSchedules].forEach((schedule) => {
+      (schedule.participantIds ?? []).forEach((participantId) => {
+        ownerIds.add(participantId);
+      });
+    });
+
+    return [...ownerIds].sort();
+  }, [pastSchedules, schedules]);
+
+  useEffect(() => {
+    if (!isFirebaseConfigured || !currentUser || scheduleParticipantOwnerIds.length === 0) {
+      setScheduleParticipantProfiles({});
+      return undefined;
+    }
+
+    const handleSubscriptionError = (caughtError) => {
+      setError(`Firestore read error: ${caughtError.message}`);
+    };
+
+    try {
+      return subscribeProfilesByOwnerIds(scheduleParticipantOwnerIds, setScheduleParticipantProfiles, handleSubscriptionError);
+    } catch (caughtError) {
+      setError(caughtError.message);
+      return undefined;
+    }
+  }, [currentUser, scheduleParticipantOwnerIds]);
 
   const loadProfiles = useCallback(async ({ reset = false } = {}) => {
     if (!isFirebaseConfigured || !currentUser) {
@@ -1019,6 +1051,7 @@ function App() {
             <>
               <ScheduleList
                 currentUser={isApprovedUser ? currentUser : null}
+                participantProfiles={scheduleParticipantProfiles}
                 schedules={schedules}
                 onDelete={handleDeleteSchedule}
                 onEdit={handleEditSchedule}
@@ -1035,6 +1068,7 @@ function App() {
                   <h3>이전 일정</h3>
                   <ScheduleList
                     currentUser={isApprovedUser ? currentUser : null}
+                    participantProfiles={scheduleParticipantProfiles}
                     schedules={pastSchedules}
                     onDelete={handleDeleteSchedule}
                     onEdit={handleEditSchedule}

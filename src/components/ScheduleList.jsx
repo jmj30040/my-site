@@ -7,6 +7,7 @@ function canManageItem(currentUser, item) {
 
 export function ScheduleList({
   currentUser,
+  participantProfiles = {},
   schedules,
   onEdit,
   onDelete,
@@ -34,6 +35,16 @@ export function ScheduleList({
       {schedules.map((schedule) => {
         const participants = schedule.participants ?? [];
         const participantIds = schedule.participantIds ?? [];
+        const participantItems = participants.map((participant, index) => {
+          const participantId = participantIds[index] ?? '';
+          const profile = participantProfiles[participantId];
+
+          return {
+            id: participantId || `${schedule.id}-${participant}`,
+            imageUrl: profile?.profileImageUrl ?? '',
+            name: participant,
+          };
+        });
         const canManage = canManageItem(currentUser, schedule);
         const isClosed = isScheduleClosed(schedule, now);
         const canEditClosedSchedule = Boolean(currentUser?.isAdmin);
@@ -58,7 +69,31 @@ export function ScheduleList({
             </div>
             <p className="bio">{schedule.memo || '메모가 없습니다.'}</p>
             <p className="meta">작성자: {schedule.ownerNickname || '알 수 없음'}</p>
-            <p className="meta">참여자: {participants.length > 0 ? participants.join(', ') : '아직 없음'}</p>
+            <div className="schedule-participants">
+              <span className="meta">참여자:</span>
+              {participantItems.length > 0 ? (
+                <div className="schedule-participant-list">
+                  {participantItems.map((participant) => (
+                    <span className="schedule-participant" key={participant.id}>
+                      {participant.imageUrl ? (
+                        <img
+                          className="schedule-participant-avatar"
+                          src={participant.imageUrl}
+                          alt={`${participant.name} 프로필 이미지`}
+                        />
+                      ) : (
+                        <span className="schedule-participant-avatar schedule-participant-avatar-placeholder">
+                          {participant.name?.slice(0, 1) ?? '?'}
+                        </span>
+                      )}
+                      <span>{participant.name}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span className="meta">아직 없음</span>
+              )}
+            </div>
             <div className="actions">
               {currentUser &&
                 (isJoined ? (
