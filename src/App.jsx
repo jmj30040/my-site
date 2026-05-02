@@ -899,6 +899,15 @@ function App() {
     }
   };
 
+  const handleOpenPositionTest = () => {
+    const positionTestUrl = new URL(
+      `${import.meta.env.BASE_URL}position-test/index.html`,
+      window.location.origin,
+    ).toString();
+
+    window.open(positionTestUrl, '_blank', 'noopener,noreferrer');
+  };
+
   if (!isFirebaseConfigured) {
     return (
       <main className="app-shell">
@@ -976,6 +985,12 @@ function App() {
         >
           <span>채팅</span>
           {newContentBySection.chat && <span className="tab-new-badge">NEW</span>}
+        </button>
+        <button
+          type="button"
+          onClick={handleOpenPositionTest}
+        >
+          포지션 테스트
         </button>
         {currentUser?.isAdmin && (
           <button
